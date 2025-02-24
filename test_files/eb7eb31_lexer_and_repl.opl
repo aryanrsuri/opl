@@ -1,0 +1,14 @@
+let x = 5;
+let y = 10;
+
+type Character = {
+  uuid: String,
+  health: Int,
+  inventory: Int List,
+};
+
+type Cell = 
+  | Alive of Int
+  | Dormant
+  ;
+
