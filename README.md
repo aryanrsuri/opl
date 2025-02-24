@@ -6,7 +6,8 @@ This technical standard defines the specification for the oPL (pronounced "opal"
 ## Grammar
 
 ```
-pub enum Token {
+Tokens: one of:
+
     // Keywords
     Let,
     Fn,
@@ -86,7 +87,7 @@ pub enum Token {
     SemiColon,    // ;
     Period,       // .
     Over,         // ..
-}
+
 ```
 
 ## Primitive Types
