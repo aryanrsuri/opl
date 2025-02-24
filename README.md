@@ -3,7 +3,7 @@
 
 This technical standard defines the specification for the oPL (pronounced "opal") programming language. Including a list of examples and basic usage.
 
-## Lexical Structure
+## Grammar
 
 ```
 pub enum Token {
@@ -96,6 +96,7 @@ pub enum Token {
 - Char: Unsigned 8-bit width.
 - Boolean: False or True
 - String: Sequence of Chars
+  
 ## Expression Binding
 
 Expression Binding (Immutable by default): 
@@ -197,7 +198,7 @@ let second_element = match l0 with
   ;
 ```
 
-### Tagged Union 
+## Tagged Union 
 
 A tagged union can be one of several variants which can either hold a value of some type 'a or not.
 
@@ -210,7 +211,7 @@ type Cell =
   ;
 ```
 
-#### Option (Polymorphic Tagged Union)
+### Option (Polymorphic Tagged Union)
 
 The Option type is used to represent an optional value. It may either hold a value of type 'a (`Some`) or no value (`None`).
 
@@ -223,7 +224,7 @@ match Some 42
 | None -> 0 // Default value when None
 ;
 ```
-#### Result (Polymorphic Tagged Union)
+### Result (Polymorphic Tagged Union)
 
 A result type can express an outcome as either a success `Ok` of type 'a or a failure `Error` of type 'b
 
@@ -233,7 +234,7 @@ Ok 42;
 Error "Bruh";
 ```
 
-### Record
+## Record
 
 A Record is a product type (sequence of elements of any types 'a * 'b ... 'n) but identified by a key insted of its index (i.e a tuple). fields can be accessed using the dot notation `record_identifier.field_key`
 
@@ -264,7 +265,7 @@ let flashcard = {
 flashcard.back;
 ```
 
-### Parametric Polymorphism
+## Parametric Polymorphism
 
 Tagged unions and records, using the `type` keyword, can be parametrized by any valid other type `'a`. This is known in many languages as a _generic_.
 
