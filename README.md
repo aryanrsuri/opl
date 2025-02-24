@@ -1,27 +1,105 @@
 # oPL ("Opal") Language Specification 
-
 ## Abstract
 
 This technical standard defines the specification for the oPL (pronounced "opal") programming language. Including a list of examples and basic usage.
 
 ## Lexical Structure
 
-Identifiers: Sequences of letters, digits, and underscores, starting with a letter or underscore.
-Keywords: let, fn, if, else, in, match, with, type, Ok, Some, Error, None, True, False
-Operators: +, ++, -, *, /, =, ==, !=, >, <, >=, <=, |>, ->
-Delimiters: {, }, (, ), [, ], :, ;, ,
+```
+pub enum Token {
+    // Keywords
+    Let,
+    Fn,
+    Return,
+    If,
+    Else,
+    Type,
+    Match,
+    With,
+    Of,
+    Raise,
+
+    // Primitive
+    True,
+    False,
+    Char,
+    String,
+    Int,
+    Float,
+
+    // Algebraic
+    List,
+    Union,
+    Record,
+    Option,
+    Result,
+    Ok,
+    Error,
+    Unit,
+    Some,
+    None,
+
+    // Literals
+    Identifier(String),
+    StringLiteral(String),
+    IntegerLiteral(String),
+    FloatLiteral(String),
+    Comment(String),
+
+    // Parsing
+    End,
+    Illegal,
+
+    // Operators
+    Plus,         // +
+    Minus,        // -
+    Concat,       // ++
+    Product,      // *
+    ForwardSlash, // /
+    Assign,       // =
+    Bang,         // !
+    Underscore,   // _
+    Comma,        // ,
+    Equal,        // ==
+    DoesNotEqual, // !=
+    GreaterThan,  // >
+    LessThan,     // <
+    GTOrEqual,    // >=
+    LTOrEqual,    // <=
+    Vbar,         // |
+    Pipe,         // |>
+    Arrow,        // ->
+    Modulo,       // %
+    Ampersand,    // &
+    Caret,        // ^
+    Polymorph,    // 'a
+
+    // Delimiters
+    LeftBrace,    // {
+    RightBrace,   // }
+    LeftParen,    // (
+    RightParen,   // )
+    LeftBracket,  // [
+    RightBracket, // ]
+    Colon,        // :
+    Cons,         // ::
+    SemiColon,    // ;
+    Period,       // .
+    Over,         // ..
+}
+```
 
 ## Primitive Types
 
-Int: Signed 64-bit width.
-Byte: Unsigned 8-bit width.
-Boolean: False or True
-String: Sequence of bytes
-
+- Int: Signed 64-bit width.
+- Float: Signed 64-bit width.
+- Char: Unsigned 8-bit width.
+- Boolean: False or True
+- String: Sequence of Chars
 ## Expression Binding
 
 Expression Binding (Immutable by default): 
-Syntax: let <identifier> = <expression>;
+Syntax: `let <identifier> = <expression>;`
 
 ```
 let x = 10;
@@ -32,13 +110,15 @@ let world = "World!"
 let hello_world = hello ++ world;
 ```
 
-Functions:
+## Functions
+
 A function in oPL takes one or more arguments and returns a result. A function can be defined using the `fn` keyword.
 
-Syntax: let <identifier> = fn 'a, 'b, ... -> <expression>;
+Syntax: `let <identifier> = fn 'a, 'b, ... -> <expression>;`
 
-Functions can be evaluated using the syntax: <function_identifier> <argument>
+Functions can be evaluated using the syntax: `<function_identifier> <argument>`
 Example:
+
 ```
 let sum = fn x, y -> x + y;
 let multi_line = fn x -> {
@@ -53,7 +133,7 @@ multi_line 10;  // Function application with 10 as the argument.
 
 This operator is used to pipe the result of one expression into the next. It is closely related to function composition.
 
-Syntax: <expression> |> <expression>
+Syntax: `<expression> |> <expression>`
 Example:
 
 ```
@@ -66,7 +146,7 @@ let list_of_ints = parse filepath
 
 If Expressions: Conditional expressions in oPL are expressions themselves, ensuring both branches return a value.
 
-Syntax: if <condition> { <expression> } else { <expression> }
+Syntax: `if <condition> { <expression> } else { <expression> }`
 
 Example:
 ```
@@ -76,7 +156,7 @@ let divide = fn x, y -> if y == 0 { Error } else { Ok x / y };
 
 ## Function Piping
 
-Syntax: <expression> |> <expression>
+Syntax: `<expression> |> <expression>`
 Example:
 
 ```
@@ -90,7 +170,7 @@ let list_of_ints = parse(filepath)
 
 If Expressions: Conditional expressions.
 
-Syntax: if <condition> { <expression> } else { <expression> }
+Syntax: `if <condition> { <expression> } else { <expression> }`
 Example:
 
 ```
@@ -105,23 +185,23 @@ let factorial = fn n -> if n == 0 { 1 } else { n * factorial (n - 1) };
 
 A list is a collection of disparate elements of a single type 'a
 
-Syntax: let <identifier> = [ 'a, 'a, 'a ];
+Syntax: `let <identifier> = [ 'a, 'a, 'a ];`
 Example:
 ```
 let l0= [1, 2, 3, 4];
 let l1 = 0 :: l0;
-let second_element = match l0 
+let second_element = match l0 with
   | x :: y :: u -> Some y
   | x :: u -> Some x
   | [] :: None
-
+  ;
 ```
 
 ### Tagged Union 
 
 A tagged union can be one of several variants which can either hold a value of some type 'a or not.
 
-Syntax: type <identifier> = | <variant> of <type> | ... ;
+Syntax: type `<identifier> = | <variant> of <type> | ... ;`
 Example:
 ```
 type Cell =
@@ -157,10 +237,13 @@ Error "Bruh";
 
 A Record is a product type (sequence of elements of any types 'a * 'b ... 'n) but identified by a key insted of its index (i.e a tuple). fields can be accessed using the dot notation `record_identifier.field_key`
 
-Syntax: type <identifier> = {
+Syntax: 
+```
+type <identifier> = {
   field_key_1: value_1,
   field_key_2: value_2,
 }
+```
 
 Example
 ```
@@ -186,8 +269,8 @@ flashcard.back;
 Tagged unions and records, using the `type` keyword, can be parametrized by any valid other type `'a`. This is known in many languages as a _generic_.
 
 Syntax 
-(Tagged Union) type 'a identifier = | variant ...;
-(Record) type 'a identifier = { ... };
+(Tagged Union) `type 'a identifier = | variant ...;`
+(Record)` type 'a identifier = { ... };`
 
 Example
 ```
@@ -210,7 +293,7 @@ let player_1 = {x = 100, y = 100, z = 0};
 
 Matching is a powerful data inspection protocol
 
-Syntax: match <expression> with | <pattern> -> <expression> | ... ;
+Syntax: `match <expression> with | <pattern> -> <expression> | ... ;`
 Example:
 
 ```
@@ -223,12 +306,10 @@ let partition = fn cell -> {
   match cell with
     | Alive n -> "This cell is alive with " ++ string_of_int n ++ " health"
     | Dormant n -> "This cell is dormant"
-    | _ -> "Unkown cell state"
+    | _ -> "Unknown cell state"
   ;
 };
 
 let curr_cell = Alive 10;
 partition curr_cel;
-
 ```
-
