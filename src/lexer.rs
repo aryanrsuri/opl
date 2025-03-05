@@ -13,12 +13,13 @@ pub enum Token {
     Raise,
 
     // Primitive
-    True,
-    False,
     Char,
     String,
+    Boolean(bool),
     Int,
     Float,
+    Use,
+    Std,
 
     // Algebraic
     List,
@@ -66,6 +67,8 @@ pub enum Token {
     Ampersand,    // &
     Caret,        // ^
     Polymorph,    // 'a
+    Cons,         // ::
+    Tilde,        // ~
 
     // Delimiters
     LeftBrace,    // {
@@ -75,7 +78,6 @@ pub enum Token {
     LeftBracket,  // [
     RightBracket, // ]
     Colon,        // :
-    Cons,         // ::
     SemiColon,    // ;
     Period,       // .
     Over,         // ..
@@ -128,44 +130,73 @@ impl Lexer {
     }
 
     pub fn read_string(&mut self) -> Token {
+        // Consume the opening double quote.
         self.read();
-        // on ident essentially
-        let current = self.cur;
-        loop {
-            if is_alphanumeric(self.ch) || is_whitespace(self.ch) {
+        let mut result = String::new();
+
+        // Loop until we hit the closing double quote or end-of-input.
+        while self.ch != '"' && self.ch != '\0' {
+            // Handle escape sequences.
+            if self.ch == '\\' {
                 self.read();
+                match self.ch {
+                    'n' => result.push('\n'),
+                    't' => result.push('\t'),
+                    'r' => result.push('\r'),
+                    '\\' => result.push('\\'),
+                    '"' => result.push('"'),
+                    // Add additional escape sequences as needed.
+                    _ => result.push(self.ch),
+                }
             } else {
-                break;
+                // Accept any character inside a string literal, including punctuation.
+                result.push(self.ch);
             }
+            self.read();
         }
 
-        // TODO: Force end delimter to be doublequote or error
-        self.read();
-        Token::StringLiteral(self.input[current..self.cur - 1].iter().collect::<String>())
-    }
-    pub fn read_number(&mut self) -> Token {
-        // TODO: Enable Floats
-        let current = self.cur;
-        loop {
-            if is_numeric(self.ch) {
-                self.read();
-            } else {
-                break;
-            }
+        // Check if we ended with a proper closing quote.
+        if self.ch == '"' {
+            // Consume the closing double quote.
+            self.read();
+            Token::StringLiteral(result)
+        } else {
+            // Unterminated string literal, could also log an error or return a special token.
+            Token::Illegal
         }
-        return Token::IntegerLiteral(self.input[current..self.cur].iter().collect::<String>());
     }
 
     pub fn read_comment(&mut self) -> Token {
-        let current = self.cur;
-        loop {
-            if is_alphanumeric(self.ch) || self.ch == ' ' || self.ch == '\t' {
-                self.read();
-            } else {
-                break;
-            }
+        // In many languages, a comment goes until the end of the line.
+        // We can read until we hit a newline or end-of-input.
+        let mut comment = String::new();
+        while self.ch != '\n' && self.ch != '\0' {
+            // Accept all characters, including punctuation and whitespace,
+            // so that comments can include a full sentence or code snippet.
+            comment.push(self.ch);
+            self.read();
         }
-        Token::Comment(self.input[current..self.cur].iter().collect::<String>())
+        Token::Comment(comment)
+    }
+
+    pub fn read_number(&mut self) -> Token {
+        let current = self.cur;
+        // Read the integer part.
+        while is_numeric(self.ch) {
+            self.read();
+        }
+
+        // Check for a '.' indicating a float, but only if it's followed by a digit.
+        if self.ch == '.' && is_numeric(self.peek()) {
+            self.read(); // Consume the '.'
+            while is_numeric(self.ch) {
+                self.read();
+            }
+            let float_literal = self.input[current..self.cur].iter().collect::<String>();
+            return Token::FloatLiteral(float_literal);
+        }
+
+        Token::IntegerLiteral(self.input[current..self.cur].iter().collect::<String>())
     }
 
     pub fn read_identifier(&mut self) -> Token {
@@ -178,64 +209,34 @@ impl Lexer {
             }
         }
         let literal = self.input[current..self.cur].iter().collect::<String>();
-        // Keywords
-        // Let,
-        // Fn,
-        // Return,
-        // If,
-        // Else,
-        // Type,
-        // Match,
-        // With,
-        // Of,
-        // Raise,
-        //
-        // // Primitive
-        // True,
-        // False,
-        // Char,
-        // String,
-        // Int,
-        // Float,
-        //
-        // // Algebraic
-        // List,
-        // Union,
-        // Record,
-        // Option,
-        // Result,
-        // Ok,
-        // Error,
-        // Unit,
-        // Some,
-        // None,
         return match literal.as_str() {
             "fn" => Token::Fn,
             "let" => Token::Let,
             "return" => Token::Return,
             "else" => Token::Else,
             "if" => Token::If,
+            "std" => Token::Std,
+            "use" => Token::Use,
             "type" => Token::Type,
             "match" => Token::Match,
             "with" => Token::With,
             "of" => Token::Of,
-            "Raise" => Token::Raise,
+            "raise" => Token::Raise,
+            "true" => Token::Boolean(true),
+            "false" => Token::Boolean(false),
+            "char" => Token::Char,
+            "string" => Token::String,
+            "int" => Token::Int,
+            "float" => Token::Float,
+            "list" => Token::List,
+            "union" => Token::Union,
+            "record" => Token::Record,
             "Ok" => Token::Ok,
             "Some" => Token::Some,
             "None" => Token::None,
             "Error" => Token::Error,
             "Option" => Token::Option,
             "Result" => Token::Result,
-
-            "True" => Token::True,
-            "False" => Token::False,
-            // "char" => Token::Char,
-            "String" => Token::String,
-            "Int" => Token::Int,
-            "Float" => Token::Float,
-            "List" => Token::List,
-            "Union" => Token::Union,
-            "Record" => Token::Record,
             _ => Token::Identifier(literal),
         };
     }
@@ -267,6 +268,7 @@ impl Lexer {
                 }
             }
             ')' => Token::RightParen,
+            '~' => Token::Tilde,
             ',' => Token::Comma,
             '+' => {
                 if self.peek() == '+' {

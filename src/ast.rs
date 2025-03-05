@@ -1,0 +1,108 @@
+use crate::lexer::Token;
+pub type Program = Vec<Statement>;
+pub type Identifier = Token;
+pub enum Statement {
+    Let(Identifier, Expression),
+    Return(Expression),
+    Comment(Identifier),
+    Expression(Expression),
+    // Sum and Product types using the keyword `type`
+    Variant(Identifier, Type),
+}
+
+pub enum Literal {
+    Integer(i64),
+    Float(f64),
+    String(String),
+    Boolean(bool),
+    Char(char),
+    Unit,
+    List(Vec<Expression>),
+    Record(Vec<(Identifier, Expression)>),
+}
+
+pub enum Expression {
+    Identifier(Identifier),
+    // Option
+    OptionSome(Box<Expression>),
+    OptionNone,
+    // Result
+    ResultOk(Box<Expression>),
+    ResultErr(Box<Expression>),
+    // Literals
+    Literal(Literal),
+    // Expression Variants
+    Prefix(Prefix, Box<Expression>),
+    Infix(Infix, Box<Expression>, Box<Expression>),
+    // Control Flow
+    Block(Program),
+    If {
+        condition: Box<Expression>,
+        consequence: Program,
+        alternative: Option<Program>,
+    },
+    Function {
+        parameters: Vec<Identifier>,
+        body: Program,
+    },
+    Call {
+        function: Box<Expression>,
+        arguments: Vec<Expression>,
+    },
+    Match {
+        expr: Box<Expression>,
+        arms: Vec<(Pattern, Program)>,
+    },
+}
+
+pub enum Pattern {
+    // e.g. this_is_an_identifier
+    Identifier(Identifier),
+    // e.g. 1 or "hello"
+    Literal(Literal),
+    // e.g. Some(a)
+    Variant(Identifier, Option<Box<Pattern>>),
+    // e.g. { a, b }
+    Record(Vec<(Identifier, Pattern)>),
+    // e.g a :: b
+    Infix(Infix, Box<Pattern>, Box<Pattern>),
+    // Underscore pattern _ to match any value
+    Wildcard,
+    // []
+    Empty,
+}
+
+pub enum Type {
+    Union(Vec<(Identifier, Option<Alias>)>),
+    Record(Vec<(Identifier, Alias)>),
+    Alias(Alias),
+}
+
+pub struct Alias {
+    pub name: Identifier,
+    pub parameters: Vec<Alias>,
+}
+
+pub enum Prefix {
+    Plus,
+    Minus,
+    Bang,
+}
+
+pub enum Infix {
+    Plus,
+    Minus,
+    Concat,
+    Product,
+    ForwardSlash,
+    Equal,
+    DoesNotEqual,
+    GreaterThan,
+    LessThan,
+    GTOrEqual,
+    LTOrEqual,
+    Caret,
+    Modulo,
+    Ampersand,
+    Cons,
+}
