@@ -1,4 +1,4 @@
-# oPL ("Opal") Language Specification 
+# oPL ("Opal") Language Specification
 ## Abstract
 
 This technical standard defines the specification for the oPL (pronounced "opal") programming language. Including a list of examples and basic usage.
@@ -20,12 +20,11 @@ pub enum Token {
     Raise,
 
     // Primitive
-    True,
-    False,
     Char,
     String,
     Int,
     Float,
+    Boolean,
 
     // Algebraic
     List,
@@ -96,9 +95,10 @@ pub enum Token {
 - Char: Unsigned 8-bit width.
 - Boolean: False or True
 - String: Sequence of Chars
+
 ## Expression Binding
 
-Expression Binding (Immutable by default): 
+Expression Binding (Immutable by default):
 Syntax: `let <identifier> = <expression>;`
 
 ```
@@ -138,7 +138,7 @@ Example:
 
 ```
 let list_of_ints = parse filepath
-  |> buffer_to_lines 
+  |> buffer_to_lines
   |> extract_int_from_lines
   |> collect_to_list;
 ```
@@ -161,7 +161,7 @@ Example:
 
 ```
 let list_of_ints = parse(filepath)
-  |> buffer_to_lines 
+  |> buffer_to_lines
   |> extract_int_from_lines
   |> collect_to_list;
 ```
@@ -197,7 +197,7 @@ let second_element = match l0 with
   ;
 ```
 
-### Tagged Union 
+### Tagged Union
 
 A tagged union can be one of several variants which can either hold a value of some type 'a or not.
 
@@ -206,7 +206,7 @@ Example:
 ```
 type Cell =
   | Alive of Int
-  | Dormant 
+  | Dormant
   ;
 ```
 
@@ -218,7 +218,7 @@ Example
 ```
 let value = Some 45;
 let absent = None;
-match Some 42 
+match Some 42
 | Some x -> x;
 | None -> 0 // Default value when None
 ;
@@ -237,7 +237,7 @@ Error "Bruh";
 
 A Record is a product type (sequence of elements of any types 'a * 'b ... 'n) but identified by a key insted of its index (i.e a tuple). fields can be accessed using the dot notation `record_identifier.field_key`
 
-Syntax: 
+Syntax:
 ```
 type <identifier> = {
   field_key_1: value_1,
@@ -268,13 +268,13 @@ flashcard.back;
 
 Tagged unions and records, using the `type` keyword, can be parametrized by any valid other type `'a`. This is known in many languages as a _generic_.
 
-Syntax 
+Syntax
 (Tagged Union) `type 'a identifier = | variant ...;`
 (Record)` type 'a identifier = { ... };`
 
 Example
 ```
-type 'a Option = 
+type 'a Option =
   | Some of 'a
   | None
 ;
@@ -297,7 +297,7 @@ Syntax: `match <expression> with | <pattern> -> <expression> | ... ;`
 Example:
 
 ```
-type Cell = 
+type Cell =
   | Alive of Int
   | Dormant
   ;

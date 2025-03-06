@@ -33,11 +33,11 @@ fn main() {
 fn process_file(file_path: &str) {
     let content = fs::read_to_string(file_path).expect("Unable to read file");
     let lexer = lexer::Lexer::new(&content);
-    let mut parser = parser_ai_generated::Parser::new(lexer);
+    let mut parser = parser::Parser::new(lexer);
     let program = parser.parse_program();
     if !parser.errors.is_empty() {
         for error in parser.errors {
-            println!("Parser error: {}", error);
+            println!("Parser error: {:#?}", error);
         }
     } else {
         println!("{:#?}", program);

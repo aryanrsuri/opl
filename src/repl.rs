@@ -1,7 +1,7 @@
 // repl.rs
 
 use crate::lexer::Lexer;
-use crate::parser_ai_generated::Parser;
+use crate::parser::Parser;
 use std::io::{self, Write};
 
 pub fn start() {
@@ -33,7 +33,7 @@ pub fn start() {
         if !parser.errors.is_empty() {
             println!("Parser errors:");
             for error in parser.errors {
-                println!("  - {}", error);
+                println!("Errors {:#?}", error);
             }
         } else {
             // Otherwise, print the AST.

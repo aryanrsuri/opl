@@ -1,6 +1,9 @@
 use crate::lexer::Token;
 pub type Program = Vec<Statement>;
+
 pub type Identifier = Token;
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
     Let(Identifier, Expression),
     Return(Expression),
@@ -10,6 +13,7 @@ pub enum Statement {
     Variant(Identifier, Type),
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Literal {
     Integer(i64),
     Float(f64),
@@ -21,6 +25,7 @@ pub enum Literal {
     Record(Vec<(Identifier, Expression)>),
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     Identifier(Identifier),
     // Option
@@ -55,6 +60,7 @@ pub enum Expression {
     },
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Pattern {
     // e.g. this_is_an_identifier
     Identifier(Identifier),
@@ -72,23 +78,27 @@ pub enum Pattern {
     Empty,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Type {
     Union(Vec<(Identifier, Option<Alias>)>),
     Record(Vec<(Identifier, Alias)>),
     Alias(Alias),
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct Alias {
     pub name: Identifier,
     pub parameters: Vec<Alias>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Prefix {
     Plus,
     Minus,
     Bang,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Infix {
     Plus,
     Minus,
