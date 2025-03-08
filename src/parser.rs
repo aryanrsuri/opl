@@ -1,22 +1,37 @@
 use crate::ast::*;
 use crate::lexer::{Lexer, Token};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Precedence {
     Lowest,
-    Pipe,
-    Equals,
-    LessGreater,
-    Sum,
-    Product,
-    Cons,
-    Prefix,
-    Call,
+    Pipe,        // |>
+    Equals,      // == =/=
+    LessGreater, // < >
+    Sum,         // + - ++
+    Product,     // * / %
+    Cons,        // ::
+    Prefix,      // - ! ~
+    Call,        // lambda x
+                 // way to index into a list
+}
+
+fn token_to_precedence(token: &Token) -> Precedence {
+    match token {
+        Token::Pipe => Precedence::Pipe,
+        Token::Equal | Token::DoesNotEqual => Precedence::Equals,
+        Token::LessThan | Token::GreaterThan => Precedence::LessGreater,
+        Token::Plus | Token::Minus => Precedence::Sum,
+        Token::Product | Token::ForwardSlash | Token::Period => Precedence::Product,
+        Token::Cons | Token::Concat => Precedence::Cons,
+        Token::LeftParen => Precedence::Call,
+        _ => Precedence::Lowest,
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
     UnexpectedToken { want: Option<Token>, got: Token },
+    Log(String),
 }
 
 pub type ParseErrors = Vec<ParseError>;
@@ -83,7 +98,6 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<Statement> {
-        println!("In let statemnt parsing");
         match &self.peek {
             Token::Identifier(_) => self.next_token(),
             _ => return None,
@@ -143,17 +157,76 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
-        match self.curr {
-            Token::Identifier(_) => self.parse_identifier_expression(),
-            _ => None,
+        let mut left = match &self.curr {
+            Token::Identifier(_) => match self.parse_identifier() {
+                Some(ident) => Some(Expression::Identifier(ident)),
+                None => None,
+            },
+            Token::IntegerLiteral(s) => match s.parse::<i64>() {
+                Ok(d) => Some(Expression::Literal(Literal::Integer(d))),
+                Err(_) => {
+                    self.errors
+                        .push(ParseError::Log(format!("Could not parse {} as integer", s)));
+                    return None;
+                }
+            },
+            Token::FloatLiteral(s) => match s.parse::<f64>() {
+                Ok(d) => Some(Expression::Literal(Literal::Float(d))),
+                Err(_) => {
+                    self.errors
+                        .push(ParseError::Log(format!("Could not parse {} as float", s)));
+                    return None;
+                }
+            },
+            Token::Bang | Token::Minus | Token::Tilde => self.parse_prefix_expression(),
+            _ => {
+                // self.peek_error(Token::Identifier(
+                //     "Error no prefix parse function found".to_string(),
+                // ));
+                return None;
+            }
+        };
+
+        // Infix expressions
+        while !self.peek_token_is(Token::SemiColon) && precedence < token_to_precedence(&self.peek)
+        {
+            match self.peek {
+                Token::Plus
+                | Token::Minus
+                | Token::Product
+                | Token::ForwardSlash
+                | Token::Equal
+                | Token::DoesNotEqual
+                | Token::LessThan
+                | Token::GreaterThan
+                | Token::Pipe
+                | Token::Cons
+                | Token::Concat => {
+                    self.next_token();
+                    left = self.parse_infix_expression(left.unwrap());
+                }
+                Token::LeftParen => {
+                    self.next_token();
+                    left = self.parse_call_expression(left.unwrap());
+                }
+                // Lbraket => {
+                //    self.next_token();
+                //   left = self.parse_index_expression(left.unwrap());
+                // }
+                // Dot => {
+                //   self.next_token();
+                // left = self.parse_dot_expression(left.unwrap());
+                // }
+                _ => return left,
+            }
         }
+
+        left
     }
 
-    fn parse_identifier_expression(&mut self) -> Option<Expression> {
-        match self.parse_identifier() {
-            Some(ident) => Some(Expression::Identifier(ident)),
-            None => None,
-        }
+    fn parse_call_expression(&mut self, expression: Expression) -> Option<Expression> {
+        _ = expression;
+        None
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {
@@ -166,5 +239,13 @@ impl Parser {
             }
             None => None,
         }
+    }
+
+    fn parse_prefix_expression(&mut self) -> Option<Expression> {
+        None
+    }
+
+    fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
+        None
     }
 }
