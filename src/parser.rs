@@ -19,7 +19,9 @@ fn token_to_precedence(token: &Token) -> Precedence {
     match token {
         Token::Pipe => Precedence::Pipe,
         Token::Equal | Token::DoesNotEqual => Precedence::Equals,
-        Token::LessThan | Token::GreaterThan => Precedence::LessGreater,
+        Token::LessThan | Token::GreaterThan | Token::GTOrEqual | Token::LTOrEqual => {
+            Precedence::LessGreater
+        }
         Token::Plus | Token::Minus => Precedence::Sum,
         Token::Product | Token::ForwardSlash | Token::Period => Precedence::Product,
         Token::Cons | Token::Concat => Precedence::Cons,
@@ -156,7 +158,23 @@ impl Parser {
         }
     }
 
+    fn peek_precedence(&mut self) -> Precedence {
+        token_to_precedence(&self.peek)
+    }
+
+    fn curr_precedence(&mut self) -> Precedence {
+        token_to_precedence(&self.curr)
+    }
+
+    fn no_prefix_parse_fn_error(&mut self, t: Token) {
+        self.errors.push(ParseError::Log(format!(
+            "No prefix parse function for {:?} found",
+            t
+        )));
+    }
+
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
+        // FIXME: <asuri> Abstract each of these into their own functions.
         let mut left = match &self.curr {
             Token::Identifier(_) => match self.parse_identifier() {
                 Some(ident) => Some(Expression::Identifier(ident)),
@@ -178,11 +196,19 @@ impl Parser {
                     return None;
                 }
             },
-            Token::Bang | Token::Minus | Token::Tilde => self.parse_prefix_expression(),
+            Token::Boolean(b) => Some(Expression::Literal(Literal::Boolean(*b))),
+            Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
+            Token::LeftParen => {
+                self.next_token();
+                let expr = self.parse_expression(Precedence::Lowest);
+                if !self.expect_peek(Token::RightParen) {
+                    return None;
+                }
+                expr
+            }
+            Token::If => self.parse_if_expression(),
             _ => {
-                // self.peek_error(Token::Identifier(
-                //     "Error no prefix parse function found".to_string(),
-                // ));
+                self.no_prefix_parse_fn_error(self.curr.clone());
                 return None;
             }
         };
@@ -242,10 +268,83 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression> {
-        None
+        let prefix = match self.curr {
+            Token::Bang => Prefix::Bang,
+            Token::Minus => Prefix::Minus,
+            Token::Plus => Prefix::Plus,
+            _ => return None,
+        };
+
+        self.next_token();
+        self.parse_expression(Precedence::Prefix)
+            .map(|expr| Expression::Prefix(prefix, Box::new(expr)))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
-        None
+        //     Caret,
+        //     Modulo,
+        //     Ampersand,
+
+        let infix = match self.curr {
+            Token::Plus => Infix::Plus,
+            Token::Minus => Infix::Minus,
+            Token::Product => Infix::Product,
+            Token::ForwardSlash => Infix::ForwardSlash,
+            Token::Equal => Infix::Equal,
+            Token::DoesNotEqual => Infix::DoesNotEqual,
+            Token::LessThan => Infix::LessThan,
+            Token::GreaterThan => Infix::GreaterThan,
+            Token::GTOrEqual => Infix::GTOrEqual,
+            Token::LTOrEqual => Infix::LTOrEqual,
+            Token::Pipe => Infix::Pipe,
+            Token::Cons => Infix::Cons,
+            Token::Concat => Infix::Concat,
+            _ => return None,
+        };
+
+        let precedence = self.curr_precedence();
+        self.next_token();
+        self.parse_expression(precedence)
+            .map(|expr| Expression::Infix(infix, Box::new(left), Box::new(expr)))
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        self.next_token();
+        let condition = match self.parse_expression(Precedence::Lowest) {
+            Some(expr) => expr,
+            None => return None,
+        };
+
+        if !self.expect_peek(Token::LeftBrace) {
+            return None;
+        }
+        self.next_token();
+
+        let consequence = self.parse_block_statement();
+        let mut alternative = None;
+        if self.peek_token_is(Token::Else) {
+            self.next_token();
+            if !self.expect_peek(Token::LeftBrace) {
+                return None;
+            }
+            self.next_token();
+            alternative = Some(self.parse_block_statement());
+        }
+        Some(Expression::If {
+            condition: Box::new(condition),
+            consequence,
+            alternative,
+        })
+    }
+
+    fn parse_block_statement(&mut self) -> Program {
+        let mut statements = vec![];
+        while !self.curr_token_is(Token::RightBrace) && !self.curr_token_is(Token::End) {
+            if let Some(statement) = self.parse_statement() {
+                statements.push(statement);
+            }
+            self.next_token();
+        }
+        statements
     }
 }

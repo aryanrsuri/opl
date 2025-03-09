@@ -102,7 +102,7 @@ pub enum Prefix {
 pub enum Infix {
     Plus,
     Minus,
-    Concat,
+    Concat, // ++
     Product,
     ForwardSlash,
     Equal,
@@ -115,4 +115,5 @@ pub enum Infix {
     Modulo,
     Ampersand,
     Cons,
+    Pipe,
 }
