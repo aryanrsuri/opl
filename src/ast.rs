@@ -10,7 +10,7 @@ pub enum Statement {
     Comment(Identifier),
     Expression(Expression),
     // Sum and Product types using the keyword `type`
-    Variant(Identifier, Type),
+    Type(Identifier, Type),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -86,8 +86,28 @@ pub enum Type {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub enum Constructor {
+    Int,
+    Float,
+    String,
+    Char,
+    Bool,
+    List,
+    Option,
+    Result,
+    Map,
+    Unit,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum TypeConstructor {
+    BuiltIn(Constructor),
+    Custom(Identifier),
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct Alias {
-    pub name: Identifier,
+    pub name: TypeConstructor,
     pub parameters: Vec<Alias>,
 }
 

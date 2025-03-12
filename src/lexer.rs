@@ -12,26 +12,33 @@ pub enum Token {
     Of,
     Raise,
 
-    // Primitive
-    Char,
-    String,
-    Boolean(bool),
-    Int,
-    Float,
-    Use,
-    Std,
-
     // Algebraic
-    List,
     Union,
     Record,
-    Option,
-    Result,
     Ok,
     Error,
-    Unit,
     Some,
     None,
+
+    // Primitive Types (lowercase)
+    IntType,
+    FloatType,
+    StringType,
+    CharType,
+    BoolType,
+    UnitType,
+    
+    // Type Constructors (uppercase)
+    Int,
+    Float,
+    String,
+    Char,
+    Bool,
+    List,
+    Option,
+    Result,
+    Map,
+    Unit,
 
     // Literals
     Identifier(String),
@@ -39,6 +46,9 @@ pub enum Token {
     IntegerLiteral(String),
     FloatLiteral(String),
     Comment(String),
+    Boolean(bool), 
+    Use,
+    Std,
 
     // Parsing
     End,
@@ -224,19 +234,29 @@ impl Lexer {
             "raise" => Token::Raise,
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
-            "char" => Token::Char,
-            "string" => Token::String,
-            "int" => Token::Int,
-            "float" => Token::Float,
-            "list" => Token::List,
-            "union" => Token::Union,
-            "record" => Token::Record,
+            // Lowercase primitive types
+            "int" => Token::IntType,
+            "float" => Token::FloatType,
+            "string" => Token::StringType,
+            "char" => Token::CharType,
+            "bool" => Token::BoolType,
+            "unit" => Token::UnitType,
+            // Uppercase type constructors - treat as identifiers
+            "Int" => Token::Int,
+            "Float" => Token::Float,
+            "String" => Token::String,
+            "Char" => Token::Char,
+            "Bool" => Token::Bool,
+            "Unit" => Token::Unit,
+            // Keep existing type constructors
+            "List" => Token::List,
+            "Option" => Token::Option,
+            "Result" => Token::Result,
+            "Map" => Token::Map,
             "Ok" => Token::Ok,
             "Some" => Token::Some,
             "None" => Token::None,
             "Error" => Token::Error,
-            "Option" => Token::Option,
-            "Result" => Token::Result,
             _ => Token::Identifier(literal),
         };
     }

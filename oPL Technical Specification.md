@@ -218,7 +218,7 @@ Example
 ```
 let value = Some 45;
 let absent = None;
-match Some 42
+match Some 42 with
 | Some x -> x;
 | None -> 0 // Default value when None
 ;

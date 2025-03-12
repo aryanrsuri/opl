@@ -1,0 +1,715 @@
+ oPL Technical Specification.md |   2 ++--
+ src/ast.rs                     |  24 +++++++++---
+ src/lexer.rs                   |  64 +++++++++++++++----------
+ src/parser.rs                  | 479 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++------
+ 4 files changed, 528 insertions(+), 41 deletions(-)
+ src/ast.rs                     |  24 [32m+++++++++[m[31m-[m
+ src/lexer.rs                   |  64 [32m+++++++++++++++[m[31m----------[m
+ src/parser.rs                  | 479 [32m++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[m[31m------[m
+ 4 files changed, 528 insertions(+), 41 deletions(-)
+
+[1mdiff --git a/oPL Technical Specification.md b/oPL Technical Specification.md[m
+[1mindex 99c18cf..6868899 100644[m
+[1m--- a/oPL Technical Specification.md[m	
+[1m+++ b/oPL Technical Specification.md[m	
+[36m@@ -218,7 +218,7 @@[m [mExample[m
+```[m
+let value = Some 45;[m
+let absent = None;[m
+match Some 42 [32mwith[m
+| Some x -> x;[m
+| None -> 0 // Default value when None[m
+;[m
+[1mdiff --git a/src/ast.rs b/src/ast.rs[m
+[1mindex 3ab1264..f167fff 100644[m
+[1m--- a/src/ast.rs[m
+[1m+++ b/src/ast.rs[m
+[36m@@ -10,7 +10,7 @@[m [mpub enum Statement {[m
+	Comment(Identifier),[m
+	Expression(Expression),[m
+	// Sum and Product types using the keyword `type`[m
+	[31mVariant(Identifier,[m[32mType(Identifier,[m Type),
+}[m
+
+#[derive(PartialEq, Debug, Clone)][m
+[36m@@ -85,9 +85,29 @@[m [mpub enum Type {[m
+	Alias(Alias),[m
+}[m
+
+[32m#[derive(PartialEq, Debug, Clone)][m
+[32mpub enum Constructor {[m
+[32m    Int,[m
+[32m    Float,[m
+[32m    String,[m
+[32m    Char,[m
+[32m    Bool,[m
+[32m    List,[m
+[32m    Option,[m
+[32m    Result,[m
+[32m    Map,[m
+[32m    Unit,[m
+[32m}[m
+
+[32m#[derive(PartialEq, Debug, Clone)][m
+[32mpub enum TypeConstructor {[m
+[32m    BuiltIn(Constructor),[m
+[32m    Custom(Identifier),[m
+[32m}[m
+
+#[derive(PartialEq, Debug, Clone)][m
+pub struct Alias {[m
+	pub name: [31mIdentifier,[m[32mTypeConstructor,[m
+	pub parameters: Vec<Alias>,[m
+}[m
+
+[1mdiff --git a/src/lexer.rs b/src/lexer.rs[m
+[1mindex 4fb6ad6..e751761 100644[m
+[1m--- a/src/lexer.rs[m
+[1m+++ b/src/lexer.rs[m
+[36m@@ -12,33 +12,43 @@[m [mpub enum Token {[m
+	Of,[m
+	Raise,[m
+
+[31m    // Primitive[m
+[31m    Char,[m
+[31m    String,[m
+[31m    Boolean(bool),[m
+[31m    Int,[m
+[31m    Float,[m
+[31m    Use,[m
+[31m    Std,[m
+
+	// Algebraic[m
+[31m    List,[m
+	Union,[m
+	Record,[m
+[31m    Option,[m
+[31m    Result,[m
+	Ok,[m
+	Error,[m
+[31m    Unit,[m
+	Some,[m
+	None,[m
+
+	[32m// Primitive Types (lowercase)[m
+[32m    IntType,[m
+[32m    FloatType,[m
+[32m    StringType,[m
+[32m    CharType,[m
+[32m    BoolType,[m
+[32m    UnitType,[m
+[32m    [m
+[32m    // Type Constructors (uppercase)[m
+[32m    Int,[m
+[32m    Float,[m
+[32m    String,[m
+[32m    Char,[m
+[32m    Bool,[m
+[32m    List,[m
+[32m    Option,[m
+[32m    Result,[m
+[32m    Map,[m
+[32m    Unit,[m
+
+	// Literals[m
+	Identifier(String),[m
+	StringLiteral(String),[m
+	IntegerLiteral(String),[m
+	FloatLiteral(String),[m
+	Comment(String),[m
+	[32mBoolean(bool), [m
+[32m    Use,[m
+[32m    Std,[m
+
+	// Parsing[m
+	End,[m
+[36m@@ -224,19 +234,25 @@[m [mimpl Lexer {[m
+			"raise" => Token::Raise,[m
+			"true" => Token::Boolean(true),[m
+			"false" => Token::Boolean(false),[m
+			[31m"char"[m[32m// Lowercase primitive types[m
+[32m            "int"[m => [31mToken::Char,[m[32mToken::IntType,[m
+[32m            "float" => Token::FloatType,[m
+			"string" => [31mToken::String,[m
+[31m            "int"[m[32mToken::StringType,[m
+[32m            "char"[m => [31mToken::Int,[m
+[31m            "float"[m[32mToken::CharType,[m
+[32m            "bool"[m => [31mToken::Float,[m
+[31m            "list"[m[32mToken::Bool,[m
+[32m            "unit"[m => [31mToken::List,[m
+[31m            "union"[m[32mToken::UnitType,[m
+[32m            // Uppercase type constructors - treat as identifiers[m
+[32m            "Int"[m => [31mToken::Union,[m
+[31m            "record"[m[32mToken::Int,[m
+[32m            "Float"[m => [31mToken::Record,[m
+[31m            "Ok"[m[32mToken::Float,[m
+[32m            "String"[m => [31mToken::Ok,[m
+[31m            "Some"[m[32mToken::String,[m
+[32m            "Char" => Token::Char,[m
+[32m            "Bool"[m => [31mToken::Some,[m
+[31m            "None"[m[32mToken::Boolean(false),[m
+[32m            "Unit"[m => [31mToken::None,[m
+[31m            "Error"[m[32mToken::Unit,[m
+[32m            // Keep existing type constructors[m
+[32m            "List"[m => [31mToken::Error,[m[32mToken::List,[m
+			"Option" => Token::Option,[m
+			"Result" => Token::Result,[m
+			[32m"Map" => Token::Map,[m
+			_ => Token::Identifier(literal),[m
+		};[m
+	}[m
+[1mdiff --git a/src/parser.rs b/src/parser.rs[m
+[1mindex 0f7cfcc..1c9fc16 100644[m
+[1m--- a/src/parser.rs[m
+[1m+++ b/src/parser.rs[m
+[36m@@ -11,6 +11,7 @@[m [mpub enum Precedence {[m
+	Product,     // * / %[m
+	Cons,        // ::[m
+	Prefix,      // - ! ~[m
+	[32mBitwiseOp,   // & ^[m
+	Call,        // lambda x[m
+				 // way to index into a list[m
+}[m
+[36m@@ -23,8 +24,9 @@[m [mfn token_to_precedence(token: &Token) -> Precedence {[m
+			Precedence::LessGreater[m
+		}[m
+		Token::Plus | Token::Minus => Precedence::Sum,[m
+		Token::Product | Token::ForwardSlash | Token::Period [32m| Token::Modulo[m => Precedence::Product,
+		Token::Cons | Token::Concat => Precedence::Cons,[m
+		[32mToken::Ampersand | Token::Caret => Precedence::BitwiseOp, // New precedence level needed[m
+		Token::LeftParen => Precedence::Call,[m
+		_ => Precedence::Lowest,[m
+	}[m
+[36m@@ -80,11 +82,12 @@[m [mimpl Parser {[m
+			Token::Return => self.parse_return_statement(),[m
+			// Token::Comment(_) => self.parse_comment_statement(),[m
+			// Token::Identifier(_) => self.parse_expression_statement(),[m
+[31m//[m            Token::Type => [31mself.parse_variant_statement(),[m[32mself.parse_type_statement(),[m
+			_ => self.parse_expression_statement(),[m
+		}[m
+	}[m
+
+	
+	fn parse_return_statement(&mut self) -> Option<Statement> {[m
+		self.next_token();[m
+		let expr = match self.parse_expression(Precedence::Lowest) {[m
+[36m@@ -158,9 +161,9 @@[m [mimpl Parser {[m
+		}[m
+	}[m
+
+	[32m//[m fn peek_precedence(&mut self) -> Precedence {
+	[32m//[m     token_to_precedence(&self.peek)
+	[32m//[m }
+
+	fn curr_precedence(&mut self) -> Precedence {[m
+		token_to_precedence(&self.curr)[m
+[36m@@ -174,12 +177,15 @@[m [mimpl Parser {[m
+	}[m
+
+	fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {[m
+[31m        // FIXME: <asuri> Abstract each of these into their own functions.[m
+		let mut left = match &self.curr {[m
+			Token::Identifier(_) => match self.parse_identifier() {[m
+				Some(ident) => Some(Expression::Identifier(ident)),[m
+				None => None,[m
+			},[m
+			[32m// Handle built-in types as identifiers in expression context[m
+[32m            Token::String | Token::Int | Token::Float | Token::Char | Token::Bool | Token::List | Token::Option | Token::Result | Token::Map | Token::Unit => {[m
+[32m                Some(Expression::Identifier(self.curr.clone()))[m
+[32m            },[m
+			Token::IntegerLiteral(s) => match s.parse::<i64>() {[m
+				Ok(d) => Some(Expression::Literal(Literal::Integer(d))),[m
+				Err(_) => {[m
+[36m@@ -207,6 +213,14 @@[m [mimpl Parser {[m
+				expr[m
+			}[m
+			Token::If => self.parse_if_expression(),[m
+			[32mToken::Fn => self.parse_function_literal(),[m
+[32m            // Token::Match => self.parse_match_expression(),[m
+[32m            // Token::LeftBracket => self.parse_list_expression(),[m
+[32m            // Token::LeftBrace => self.parse_record_expression(),[m
+[32m            Token::Some => self.parse_some_expression(),[m
+[32m            Token::None => Some(Expression::OptionNone),[m
+[32m            Token::Ok => self.parse_ok_expression(),[m
+[32m            Token::Error => self.parse_error_expression(),[m
+			_ => {[m
+				self.no_prefix_parse_fn_error(self.curr.clone());[m
+				return None;[m
+[36m@@ -250,22 +264,155 @@[m [mimpl Parser {[m
+		left[m
+	}[m
+
+	fn [32mparse_function_literal(&mut self) -> Option<Expression> {[m
+[32m        // Syntax: fn <params> -> <body> or fn <params> -> { <body> }[m
+[32m        let params = {[m
+[32m            let mut params = Vec::new();[m
+[32m            while self.peek != Token::Arrow {[m
+[32m                self.next_token();[m
+[32m                if let Token::Identifier(s) = &self.curr {[m
+[32m                    params.push(Token::Identifier(s.clone()));[m
+[32m                } else if let Token::Unit = &self.curr {[m
+[32m                    params.push(Token::Unit)[m
+[32m                } [m
+[32m                else {[m
+[32m                    self.errors.push(ParseError::Log(format!([m
+[32m                        "expected identifier in function parameters, got {:?}",[m
+[32m                        self.curr[m
+[32m                    )));[m
+[32m                    return None;[m
+[32m                }[m
+[32m                if self.peek == Token::Comma {[m
+[32m                    self.next_token();[m
+[32m                }[m
+[32m            }[m
+[32m            params[m
+[32m        };[m
+
+[32m        if !self.expect_peek(Token::Arrow) {[m
+[32m            return None;[m
+[32m        }[m
+[32m        self.next_token();[m
+
+[32m        // Handle both block and single-line expressions[m
+[32m        let body = if self.curr_token_is(Token::LeftBrace) {[m
+[32m            let block = self.parse_block_statement();[m
+[32m            [m
+[32m            // Validate block return semantics[m
+[32m            if let Some(last) = block.last() {[m
+[32m                match last {[m
+[32m                    Statement::Return(_) => (), // Valid return statement[m
+[32m                    Statement::Expression(_) => {[m
+[32m                        if self.peek_token_is(Token::SemiColon) {[m
+[32m                            self.errors.push(ParseError::Log([m
+[32m                                "Function block's last expression must not end with semicolon".to_string()[m
+[32m                            ));[m
+[32m                            return None;[m
+[32m                        }[m
+[32m                    }[m
+[32m                    _ => {[m
+[32m                        self.errors.push(ParseError::Log([m
+[32m                            "Function block must end with expression or return statement".to_string()[m
+[32m                        ));[m
+[32m                        return None;[m
+[32m                    }[m
+[32m                }[m
+[32m            } else {[m
+[32m                self.errors.push(ParseError::Log([m
+[32m                    "Empty function body".to_string()[m
+[32m                ));[m
+[32m                return None;[m
+[32m            }[m
+[32m            block[m
+[32m        } else {[m
+[32m            // Single-line expression becomes implicit return[m
+[32m            let expr = self.parse_expression(Precedence::Lowest)?;[m
+[32m            if !self.peek_token_is(Token::SemiColon) {[m
+[32m                self.errors.push(ParseError::Log([m
+[32m                    "Single-line function body must end with semicolon".to_string()[m
+[32m                ));[m
+[32m                return None;[m
+[32m            }[m
+[32m            self.next_token(); // consume semicolon[m
+[32m            vec![Statement::Expression(expr)][m
+[32m        };[m
+
+[32m        Some(Expression::Function {[m
+[32m            parameters: params,[m
+[32m            body,[m
+[32m        })[m
+[32m    }[m
+
+[32m    pub fn parse_fn_parameters(&mut self) -> Option<Vec<Identifier>> {[m
+[32m        let mut params: Vec<Identifier> = vec![];[m
+[32m        match self.parse_identifier() {[m
+[32m            Some(ident) => params.push(ident),[m
+[32m            None => return None,[m
+[32m        };[m
+
+[32m        while self.peek_token_is(Token::Comma) {[m
+[32m            self.next_token();[m
+[32m            self.next_token();[m
+[32m            match self.parse_identifier() {[m
+[32m                Some(ident) => params.push(ident),[m
+[32m                None => return None,[m
+[32m            };[m
+[32m        }[m
+
+[32m        Some(params)[m
+[32m    }[m
+
+[32m    fn[m parse_call_expression(&mut self, [31mexpression:[m[32mfunction:[m Expression) -> Option<Expression> {
+		[31m_[m[32mlet mut arguments[m = [31mexpression;[m
+[31m        None[m[32mvec![];[m
+[32m        [m
+[32m        // Handle empty argument lists[m
+[32m        if self.peek_token_is(Token::RightParen) {[m
+[32m            self.next_token();[m
+[32m            return Some(Expression::Call {[m
+[32m                function: Box::new(function),[m
+[32m                arguments,[m
+[32m            });[m
+[32m        }[m
+
+[32m        // Parse first argument[m
+[32m        self.next_token();[m
+[32m        if let Some(arg) = self.parse_expression(Precedence::Lowest) {[m
+[32m            arguments.push(arg);[m
+[32m        } else {[m
+[32m            return None;[m
+[32m        }[m
+
+[32m        // Parse remaining arguments[m
+[32m        while self.peek_token_is(Token::Comma) {[m
+[32m            self.next_token(); // consume comma[m
+[32m            self.next_token(); // move to next argument[m
+[32m            if let Some(arg) = self.parse_expression(Precedence::Lowest) {[m
+[32m                arguments.push(arg);[m
+[32m            } else {[m
+[32m                return None;[m
+[32m            }[m
+[32m        }[m
+
+[32m        if !self.expect_peek(Token::RightParen) {[m
+[32m            return None;[m
+[32m        }[m
+
+[32m        Some(Expression::Call {[m
+[32m            function: Box::new(function),[m
+[32m            arguments,[m
+[32m        })[m
+	}[m
+
+	fn parse_expression_statement(&mut self) -> Option<Statement> {[m
+		[31mmatch self.parse_expression(Precedence::Lowest) {[m
+[31m            Some(expr) => {[m[32mlet expr = self.parse_expression(Precedence::Lowest)?;[m
+[32m        [m
+[32m        // Consume semicolon if present[m
+		if self.peek_token_is(Token::SemiColon) {[m
+			self.next_token();[m
+		}[m
+		
+		Some(Statement::Expression(expr))[m
+	}[m
+[31m            None => None,[m
+[31m        }[m
+[31m    }[m
+
+	fn parse_prefix_expression(&mut self) -> Option<Expression> {[m
+		let prefix = match self.curr {[m
+[36m@@ -339,12 +486,316 @@[m [mimpl Parser {[m
+
+	fn parse_block_statement(&mut self) -> Program {[m
+		let mut statements = vec![];[m
+		[32mself.next_token();[m 
+		
+		while !self.curr_token_is(Token::RightBrace) && !self.curr_token_is(Token::End) {[m
+			if let Some(statement) = self.parse_statement() {[m
+				statements.push(statement);[m
+			}[m
+			self.next_token();[m
+		}[m
+		
+		[32mif self.curr_token_is(Token::RightBrace) {[m
+[32m            self.next_token();[m
+[32m        }[m
+		
+		statements[m
+	}[m
+
+	[32mfn parse_type_statement(&mut self) -> Option<Statement> {[m
+[32m        self.next_token(); // consume 'type'[m
+[32m        [m
+[32m        let name = match self.parse_identifier() {[m
+[32m            Some(ident) => ident,[m
+[32m            None => return None,[m
+[32m        };[m
+[32m        [m
+[32m        if !self.expect_peek(Token::Assign) {[m
+[32m            return None;[m
+		}[m
+		
+		[32m// After = we might see a | directly for union types[m
+[32m        if self.peek_token_is(Token::Vbar) {[m
+[32m            self.next_token(); // move to |[m
+[32m            let type_def = self.parse_union_type()?;[m
+[32m            return Some(Statement::Type(name, type_def));[m
+[32m        }[m
+[32m        [m
+[32m        self.next_token();[m
+[32m        [m
+[32m        let type_def = match self.curr {[m
+[32m            Token::LeftBrace => self.parse_record_type()?,[m
+[32m            _ => self.parse_type_alias()?,[m
+[32m        };[m
+[32m        [m
+[32m        Some(Statement::Type(name, type_def))[m
+[32m    }[m
+
+[32m    fn parse_union_type(&mut self) -> Option<Type> {[m
+[32m        let mut variants = Vec::new();[m
+[32m        [m
+[32m        loop {[m
+[32m            self.next_token(); // move to variant name[m
+[32m            [m
+[32m            if let Token::Identifier(_) = &self.curr {[m
+[32m                let variant_name = self.curr.clone();[m
+[32m                [m
+[32m                // Check if variant has associated type (Of)[m
+[32m                let associated_type = if self.peek_token_is(Token::Of) {[m
+[32m                    self.next_token(); // consume 'of'[m
+[32m                    self.next_token(); // move to type[m
+[32m                    Some(self.parse_type_annotation()?)[m
+[32m                } else {[m
+[32m                    None[m
+[32m                };[m
+[32m                [m
+[32m                variants.push((variant_name, associated_type));[m
+[32m                [m
+[32m                // Check for next variant or end[m
+[32m                if !self.peek_token_is(Token::Vbar) {[m
+[32m                    break;[m
+[32m                }[m
+[32m                self.next_token(); // consume |[m
+[32m            } else {[m
+[32m                self.errors.push(ParseError::Log(format!([m
+[32m                    "Expected variant name, got {:?}",[m
+[32m                    self.curr[m
+[32m                )));[m
+[32m                return None;[m
+[32m            }[m
+[32m        }[m
+[32m        [m
+[32m        // Expect semicolon at end[m
+[32m        if !self.expect_peek(Token::SemiColon) {[m
+[32m            return None;[m
+[32m        }[m
+[32m        [m
+[32m        Some(Type::Union(variants))[m
+[32m    }[m
+
+[32m    fn parse_record_type(&mut self) -> Option<Type> {[m
+[32m        let mut fields = Vec::new();[m
+[32m        while !self.peek_token_is(Token::RightBrace) {[m
+[32m            self.next_token();[m
+[32m            // Parse field name[m
+[32m            let field_name = if let Token::Identifier(_) = &self.curr {[m
+[32m                self.curr.clone()[m
+[32m            } else {[m
+[32m                self.errors.push(ParseError::Log(format!([m
+[32m                    "Expected field name, got {:?}",[m
+[32m                    self.curr[m
+[32m                )));[m
+[32m                return None;[m
+[32m            };[m
+[32m            [m
+[32m            // Expect colon[m
+[32m            if !self.expect_peek(Token::Colon) {[m
+[32m                return None;[m
+[32m            }[m
+[32m            [m
+[32m            self.next_token();[m
+[32m            [m
+[32m            // Parse type annotation[m
+[32m            let type_ann = self.parse_record_type_annotation()?;[m
+[32m            fields.push((field_name, type_ann));[m
+[32m            [m
+[32m            // Handle comma if present[m
+[32m            if self.peek_token_is(Token::Comma) {[m
+[32m                self.next_token();[m
+[32m            }[m
+[32m        }[m
+[32m        [m
+[32m        // Consume closing brace and expect semicolon[m
+[32m        if !self.expect_peek(Token::RightBrace) || !self.expect_peek(Token::SemiColon) {[m
+[32m            return None;[m
+[32m        }[m
+[32m        [m
+[32m        Some(Type::Record(fields))[m
+[32m    }[m
+
+[32m    fn parse_type_alias(&mut self) -> Option<Type> {[m
+[32m        // Parse the aliased type[m
+[32m        let type_ann = self.parse_type_annotation()?;[m
+[32m        [m
+[32m        // Expect semicolon[m
+[32m        if !self.expect_peek(Token::SemiColon) {[m
+[32m            return None;[m
+[32m        }[m
+[32m        [m
+[32m        Some(Type::Alias(type_ann))[m
+[32m    }[m
+
+[32m    fn parse_type_annotation(&mut self) -> Option<Alias> {[m
+[32m        // This remains the same - for unions and aliases[m
+[32m        // Expects uppercase constructors like Int, String, etc.[m
+[32m        match &self.curr {[m
+[32m            Token::Int => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Int),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::Float => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Float),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::String => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::String),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::Char => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Char),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::Boolean(_) => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Bool),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::Unit => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Unit),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            // Type constructors must be uppercase[m
+[32m            Token::List => {[m
+[32m                self.next_token();[m
+[32m                let param = self.parse_type_annotation()?;[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::BuiltIn(Constructor::List),[m
+[32m                    parameters: vec![param],[m
+[32m                })[m
+[32m            },[m
+[32m            Token::Option => {[m
+[32m                self.next_token();[m
+[32m                let param = self.parse_type_annotation()?;[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::BuiltIn(Constructor::Option),[m
+[32m                    parameters: vec![param],[m
+[32m                })[m
+[32m            },[m
+[32m            Token::Result => {[m
+[32m                self.next_token();[m
+[32m                let param = self.parse_type_annotation()?;[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::BuiltIn(Constructor::Result),[m
+[32m                    parameters: vec![param],[m
+[32m                })[m
+[32m            },[m
+[32m            Token::Map => {[m
+[32m                self.next_token();[m
+[32m                let param = self.parse_type_annotation()?;[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::BuiltIn(Constructor::Map),[m
+[32m                    parameters: vec![param],[m
+[32m                })[m
+[32m            },[m
+[32m            // Custom type identifiers[m
+[32m            Token::Identifier(name) => {[m
+[32m                let first_char = name.chars().next().unwrap_or('_');[m
+[32m                if first_char.is_lowercase() {[m
+[32m                    self.errors.push(ParseError::Log(format!([m
+[32m                        "Custom type identifier '{}' must start with uppercase letter",[m
+[32m                        name[m
+[32m                    )));[m
+[32m                    return None;[m
+[32m                }[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::Custom(self.curr.clone()),[m
+[32m                    parameters: Vec::new(),[m
+[32m                })[m
+[32m            }[m
+[32m            _ => {[m
+[32m                self.errors.push(ParseError::Log(format!([m
+[32m                    "Expected type name, got {:?}",[m
+[32m                    self.curr[m
+[32m                )));[m
+[32m                None[m
+[32m            }[m
+[32m        }[m
+[32m    }[m
+
+[32m    fn parse_record_type_annotation(&mut self) -> Option<Alias> {[m
+[32m        // New function specifically for record field types[m
+[32m        // Expects lowercase primitives like int, string, etc.[m
+[32m        match &self.curr {[m
+[32m            Token::IntType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Int),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::FloatType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Float),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::StringType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::String),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::CharType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Char),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::BoolType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Bool),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            Token::UnitType => Some(Alias {[m
+[32m                name: TypeConstructor::BuiltIn(Constructor::Unit),[m
+[32m                parameters: Vec::new(),[m
+[32m            }),[m
+[32m            // For List, Option, etc. keep using uppercase constructors[m
+[32m            Token::List => {[m
+[32m                self.next_token();[m
+[32m                let param = self.parse_record_type_annotation()?;  // Recursive call to handle nested types[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::BuiltIn(Constructor::List),[m
+[32m                    parameters: vec![param],[m
+[32m                })[m
+[32m            },[m
+[32m            // ... similar for Option, Result, Map ...[m
+[32m            Token::Identifier(_) => {[m
+[32m                // For custom types in record fields, still require uppercase[m
+[32m                let first_char = match &self.curr {[m
+[32m                    Token::Identifier(name) => name.chars().next().unwrap_or('_'),[m
+[32m                    _ => '_',[m
+[32m                };[m
+[32m                if first_char.is_lowercase() {[m
+[32m                    self.errors.push(ParseError::Log(format!([m
+[32m                        "Custom type identifier '{}' must start with uppercase letter",[m
+[32m                        match &self.curr {[m
+[32m                            Token::Identifier(name) => name,[m
+[32m                            _ => "",[m
+[32m                        }[m
+[32m                    )));[m
+[32m                    return None;[m
+[32m                }[m
+[32m                Some(Alias {[m
+[32m                    name: TypeConstructor::Custom(self.curr.clone()),[m
+[32m                    parameters: Vec::new(),[m
+[32m                })[m
+[32m            }[m
+[32m            _ => {[m
+[32m                self.errors.push(ParseError::Log(format!([m
+[32m                    "Expected type name, got {:?}",[m
+[32m                    self.curr[m
+[32m                )));[m
+[32m                None[m
+[32m            }[m
+[32m        }[m
+[32m    }[m
+
+[32m    fn parse_some_expression(&mut self) -> Option<Expression> {[m
+[32m        self.next_token(); // consume 'Some'[m
+[32m        let expr = self.parse_expression(Precedence::Lowest)?;[m
+[32m        Some(Expression::OptionSome(Box::new(expr)))[m
+[32m    }[m
+
+[32m    fn parse_ok_expression(&mut self) -> Option<Expression> {[m
+[32m        self.next_token(); // consume 'Ok'[m
+[32m        let expr = self.parse_expression(Precedence::Lowest)?;[m
+[32m        Some(Expression::ResultOk(Box::new(expr)))[m
+[32m    }[m
+
+[32m    fn parse_error_expression(&mut self) -> Option<Expression> {[m
+[32m        self.next_token(); // consume 'Error'[m
+[32m        let expr = self.parse_expression(Precedence::Lowest)?;[m
+[32m        Some(Expression::ResultErr(Box::new(expr)))[m
+[32m    }[m
+[32m}[m
+

@@ -1,0 +1,45 @@
+
+"2024-03-11":
+  added:
+    type_system:
+      - Primitive types: int, float, string, char, bool, unit
+      - Constructors: Int, Float, String, Char, Bool, Unit
+      - Statement: Union types with variants
+      - Statement: Record types with fields
+      - Statement: Type aliases
+      - Error handling for type declarations
+    parser:
+      - Type annotation parsing
+      - Added Bitwise op to precedence
+      - Added Some, None, Ok, Error to precedence
+      - Added type checking for Some, None, Ok, Error
+  todo:
+    type_system:
+      - Pattern matching for union types
+      - Type checking implementation
+      - Generic type parameters support
+      - Type inference system
+      - Module system for types
+      - Type constraints and bounds
+    features:
+      - List expressions and operations
+      - Record expressions and field access
+      - Match expression parsing
+    type_system:
+      - Add support for parametric types (e.g., List<T>, Option<T>)
+      - Add type inference
+      - Add type checking
+      - Add support for recursive types
+    expressions:
+      - Implement list expressions ([], ::, etc.)
+      - Implement record expressions (creation and field access)
+      - Implement match expressions with pattern matching
+      - Add support for list comprehensions
+    parser:
+      - Add better error messages for type parsing
+      - Add support for type annotations in function parameters
+      - Add support for type annotations in let bindings
+    standard_library:
+      - Add basic list operations (map, filter, fold)
+      - Add basic string operations
+      - Add basic IO operations
