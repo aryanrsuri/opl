@@ -1,0 +1,45 @@
+let x = 23435;
+let y = 2344.0 + (-213.1);
+let square = fn x -> x*x;
+let complex_operation = fn x,y,z -> {
+    let sum = x + y + z;
+    return (x / sum);
+}
+type Point = List Int;
+type Cell = 
+    | Alive of Int
+    | Dormant
+;
+
+type datetime = String;
+type Flashcard = { 
+    uuid: string,
+    front: string,
+    back: string,
+    open: bool,
+    created_at: datetime,
+    edited_at: datetime,
+} ;
+
+let fc1 = {
+    uuid = "23dkj4-2343jd8-32ldkjd32",
+    front = "front",
+    back = "back",
+    open = false,
+    created_at: "2025-03-12",
+    edited_at: "2025-03-12",
+};
+
+let fc2 = {
+    fc1
+    with uuid = "2344-23598243-234329834",
+};
+
+let front_text = fc.front;
+let is_open = fc.open;
+
+print(front_text);
+print(is_open);
+print(fc.uuid);
+
+

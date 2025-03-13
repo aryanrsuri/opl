@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::{Lexer, Token};
+use std::io::Write;
 
 #[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Precedence {
@@ -45,6 +46,7 @@ pub struct Parser {
     pub curr: Token,
     pub peek: Token,
     pub errors: ParseErrors,
+    pub log_file: Option<std::fs::File>,
 }
 
 impl Parser {
@@ -54,10 +56,23 @@ impl Parser {
             curr: Token::End,
             peek: Token::End,
             errors: Vec::new(),
+            log_file: None,
         };
         parser.next_token();
         parser.next_token();
         parser
+    }
+
+    pub fn set_log_file(&mut self, file: std::fs::File) {
+        self.log_file = Some(file);
+    }
+
+    pub fn log(&mut self, message: &str) {
+        if let Some(ref mut file) = self.log_file {
+            writeln!(file, "{}", message).expect("Failed to write to log file");
+        } else {
+            println!("{}", message);
+        }
     }
 
     fn next_token(&mut self) {
@@ -69,7 +84,10 @@ impl Parser {
         let mut program = vec![];
         while self.curr != Token::End {
             if let Some(statement) = self.parse_statement() {
+                self.log(&format!("Parsed statement: {:#?}", statement));
                 program.push(statement);
+            } else if !self.errors.is_empty() {
+                self.log(&format!("Error parsing statement: {:#?}", self.errors.last().unwrap()));
             }
             self.next_token();
         }

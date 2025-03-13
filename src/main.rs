@@ -6,40 +6,65 @@ pub mod parser_ai_generated;
 pub mod repl;
 use std::env;
 use std::fs;
-
+use std::path::Path;
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    if args.len() > 1 {
-        match args[1].as_str() {
-            "--file" => {
-                if args.len() > 2 {
-                    process_file(&args[2]);
-                } else {
-                    eprintln!("Usage: cargo run -- --file <file_path>");
+    
+    // Create tests directory if it doesn't exist
+    fs::create_dir_all("tests").expect("Failed to create tests directory");
+    
+    let input = match args.get(1) {
+        Some(path) => {
+            let full_path = format!("tests/{}", path);
+            match fs::read_to_string(&full_path) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Error reading file '{}': {}", full_path, e);
+                    return;
                 }
             }
-            "--repl" => repl::start(),
-            _ => {
-                eprintln!("Usage: cargo run -- --file <file_path> OR cargo run -- --repl");
-            }
+        },
+        None => {
+            println!("Usage: cargo run <filename>");
+            println!("No file provided, entering REPL mode...");
+            String::new()
         }
-    } else {
-        // Default to REPL if no arguments are provided.
-        repl::start();
-    }
-}
+    };
 
-fn process_file(file_path: &str) {
-    let content = fs::read_to_string(file_path).expect("Unable to read file");
-    let lexer = lexer::Lexer::new(&content);
+    // Create log file if a filename was provided
+    let log_file = args.get(1).map(|path| {
+        let log_path = format!("tests/{}.log", path);
+        fs::File::create(log_path).expect("Failed to create log file")
+    });
+
+    let lexer = lexer::Lexer::new(&input);
     let mut parser = parser::Parser::new(lexer);
+    
+    // Set log file if available
+    if let Some(log_file) = log_file {
+        parser.set_log_file(log_file);
+    }
+
     let program = parser.parse_program();
+    
+    // Write final AST and errors to log file or stdout
+    let mut log_messages = Vec::new();
+    log_messages.push(format!("Final AST: {:#?}", program));
+    
     if !parser.errors.is_empty() {
-        for error in parser.errors {
-            println!("Parser error: {:#?}", error);
+        log_messages.push("Parser errors:".to_string());
+        for error in &parser.errors {
+            log_messages.push(format!("  {:#?}", error));
+        }
+    }
+
+    if parser.log_file.is_some() {
+        for msg in log_messages {
+            parser.log(&msg);
         }
     } else {
-        println!("{:#?}", program);
+        for msg in log_messages {
+            println!("{}", msg);
+        }
     }
 }
