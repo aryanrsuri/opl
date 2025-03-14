@@ -1,6 +1,9 @@
 let x = 23435;
+
 let y = 2344.0 + (-213.1);
+
 let square = fn x -> x*x;
+
 let complex_operation = fn x,y,z -> {
     let sum = x + y + z;
     return (x / sum);
@@ -11,7 +14,7 @@ let control_expression = fn n, iter -> {
     }  
     return Error 0;
 }
-type Point = List Int;
+
 type Cell = 
     | Alive of Int
     | Dormant
@@ -26,31 +29,5 @@ type Flashcard = {
     created_at: Datetime,
     edited_at: Datetime,
 };
-
-let fc1 = {
-    uuid = "23dkj4-2343jd8-32ldkjd32",
-    front = "front",
-    back = "back",
-    open = false,
-    created_at =  "2025-03-12",
-    edited_at = "2025-03-12",
-};
-
-
-// FIXME: does not parse 
-let fc2 = {
-    fc1
-    with uuid = "2344-23598243-234329834",
-};
-
-// FIXME: does not parse 
-let front_text = fc.front;
-let is_open = fc.open;
-
-
-print(front_text);
-print(is_open);
-print(fc.uuid);
-
 
 

@@ -241,22 +241,22 @@ impl Lexer {
             "char" => Token::CharType,
             "bool" => Token::BoolType,
             "unit" => Token::UnitType,
-            // Uppercase type constructors - treat as identifiers
+            // Uppercase type constructors
             "Int" => Token::Int,
             "Float" => Token::Float,
             "String" => Token::String,
             "Char" => Token::Char,
             "Bool" => Token::Bool,
-            "Unit" => Token::Unit,
-            // Keep existing type constructors
             "List" => Token::List,
             "Option" => Token::Option,
             "Result" => Token::Result,
             "Map" => Token::Map,
+            "Unit" => Token::Unit,
+            "Record" => Token::Record,
             "Ok" => Token::Ok,
+            "Error" => Token::Error,
             "Some" => Token::Some,
             "None" => Token::None,
-            "Error" => Token::Error,
             _ => Token::Identifier(literal),
         };
     }

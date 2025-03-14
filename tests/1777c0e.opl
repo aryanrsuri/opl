@@ -1,0 +1,11 @@
+// Declaration of the Flashcard record type from `bf23303.opl`
+let fc1 = {
+    uuid = "23dkj4-2343jd8-32ldkjd32",
+    front = "front",
+    back = "back",
+    open = false,
+    created_at =  "2025-03-12",
+    edited_at = "2025-03-12",
+};
+
+

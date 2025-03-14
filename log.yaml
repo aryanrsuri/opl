@@ -43,3 +43,9 @@
       - Add basic list operations (map, filter, fold)
       - Add basic string operations
       - Add basic IO operations
+"2024-03-13":
+  added: 
+    parser:
+      - Comment parsing
+      - Record declaration parsing
+      - Product type parsing (e.g. `type Point = List * Int`)

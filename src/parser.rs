@@ -84,10 +84,8 @@ impl Parser {
         let mut program = vec![];
         while self.curr != Token::End {
             if let Some(statement) = self.parse_statement() {
-                self.log(&format!("Parsed statement: {:#?}", statement));
                 program.push(statement);
             } else if !self.errors.is_empty() {
-                self.log(&format!("Error parsing statement: {:#?}", self.errors.last().unwrap()));
             }
             self.next_token();
         }
@@ -680,8 +678,6 @@ impl Parser {
     }
 
     fn parse_type_annotation(&mut self) -> Option<Alias> {
-        // This remains the same - for unions and aliases
-        // Expects uppercase constructors like Int, String, etc.
         match &self.curr {
             Token::Int => Some(Alias {
                 name: TypeConstructor::BuiltIn(Constructor::Int),
@@ -707,36 +703,28 @@ impl Parser {
                 name: TypeConstructor::BuiltIn(Constructor::Unit),
                 parameters: Vec::new(),
             }),
-            // Type constructors must be uppercase
-            Token::List => {
-                self.next_token();
+            // Type constructors must be uppercase and followed by * for parameters
+            Token::List | Token::Option | Token::Result | Token::Map => {
+                let constructor = match &self.curr {
+                    Token::List => Constructor::List,
+                    Token::Option => Constructor::Option,
+                    Token::Result => Constructor::Result,
+                    Token::Map => Constructor::Map,
+                    _ => unreachable!(),
+                };
+                
+                // Expect * after type constructor
+                if !self.expect_peek(Token::Product) {
+                    self.errors.push(ParseError::Log(
+                        "Expected * after type constructor".to_string()
+                    ));
+                    return None;
+                }
+                
+                self.next_token(); // move past *
                 let param = self.parse_type_annotation()?;
                 Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::List),
-                    parameters: vec![param],
-                })
-            },
-            Token::Option => {
-                self.next_token();
-                let param = self.parse_type_annotation()?;
-                Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Option),
-                    parameters: vec![param],
-                })
-            },
-            Token::Result => {
-                self.next_token();
-                let param = self.parse_type_annotation()?;
-                Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Result),
-                    parameters: vec![param],
-                })
-            },
-            Token::Map => {
-                self.next_token();
-                let param = self.parse_type_annotation()?;
-                Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Map),
+                    name: TypeConstructor::BuiltIn(constructor),
                     parameters: vec![param],
                 })
             },
@@ -766,8 +754,6 @@ impl Parser {
     }
 
     fn parse_record_type_annotation(&mut self) -> Option<Alias> {
-        // New function specifically for record field types
-        // Expects lowercase primitives like int, string, etc.
         match &self.curr {
             Token::IntType => Some(Alias {
                 name: TypeConstructor::BuiltIn(Constructor::Int),
@@ -793,18 +779,25 @@ impl Parser {
                 name: TypeConstructor::BuiltIn(Constructor::Unit),
                 parameters: Vec::new(),
             }),
-            // For List, Option, etc. keep using uppercase constructors
+            // Only allow List with * parameter
             Token::List => {
-                self.next_token();
-                let param = self.parse_record_type_annotation()?;  // Recursive call to handle nested types
+                // Expect * after type constructor
+                if !self.expect_peek(Token::Product) {
+                    self.errors.push(ParseError::Log(
+                        "Expected * after type constructor".to_string()
+                    ));
+                    return None;
+                }
+                
+                self.next_token(); // move past *
+                let param = self.parse_record_type_annotation()?;
                 Some(Alias {
                     name: TypeConstructor::BuiltIn(Constructor::List),
                     parameters: vec![param],
                 })
             },
-            // ... similar for Option, Result, Map ...
+            // For custom types (including record types), require uppercase identifiers
             Token::Identifier(_) => {
-                // For custom types in record fields, still require uppercase
                 let first_char = match &self.curr {
                     Token::Identifier(name) => name.chars().next().unwrap_or('_'),
                     _ => '_',
@@ -823,7 +816,13 @@ impl Parser {
                     name: TypeConstructor::Custom(self.curr.clone()),
                     parameters: Vec::new(),
                 })
-            }
+            },
+            Token::LeftBrace => {
+                self.errors.push(ParseError::Log(
+                    "Inline record types are not allowed. Define a named record type instead.".to_string()
+                ));
+                None
+            },
             _ => {
                 self.errors.push(ParseError::Log(format!(
                     "Expected type name, got {:?}",
