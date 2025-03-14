@@ -98,13 +98,12 @@ impl Parser {
         match self.curr {
             Token::Let => self.parse_let_statement(),
             Token::Return => self.parse_return_statement(),
-            // Token::Comment(_) => self.parse_comment_statement(),
-            // Token::Identifier(_) => self.parse_expression_statement(),
+            Token::Comment(_) => Some(Statement::Comment(self.curr.clone())),
             Token::Type => self.parse_type_statement(),
+            // TODO: Match
             _ => self.parse_expression_statement(),
         }
     }
-
     
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.next_token();
@@ -200,23 +199,18 @@ impl Parser {
                 Some(ident) => Some(Expression::Identifier(ident)),
                 None => None,
             },
-            // Handle built-in types as identifiers in expression context
-            Token::String | Token::Int | Token::Float | Token::Char | Token::Bool | Token::List | Token::Option | Token::Result | Token::Map | Token::Unit => {
-                Some(Expression::Identifier(self.curr.clone()))
-            },
+            Token::StringLiteral(s) => Some(Expression::Literal(Literal::String(s.clone()))),
             Token::IntegerLiteral(s) => match s.parse::<i64>() {
                 Ok(d) => Some(Expression::Literal(Literal::Integer(d))),
                 Err(_) => {
-                    self.errors
-                        .push(ParseError::Log(format!("Could not parse {} as integer", s)));
+                    self.errors.push(ParseError::Log(format!("Could not parse {} as integer", s)));
                     return None;
                 }
             },
             Token::FloatLiteral(s) => match s.parse::<f64>() {
                 Ok(d) => Some(Expression::Literal(Literal::Float(d))),
                 Err(_) => {
-                    self.errors
-                        .push(ParseError::Log(format!("Could not parse {} as float", s)));
+                    self.errors.push(ParseError::Log(format!("Could not parse {} as float", s)));
                     return None;
                 }
             },
@@ -230,20 +224,24 @@ impl Parser {
                 }
                 expr
             }
+            Token::LeftBrace => self.parse_record_expression(),
             Token::If => self.parse_if_expression(),
             Token::Fn => self.parse_function_literal(),
-            // Token::Match => self.parse_match_expression(),
-            // Token::LeftBracket => self.parse_list_expression(),
-            // Token::LeftBrace => self.parse_record_expression(),
             Token::Some => self.parse_some_expression(),
             Token::None => Some(Expression::OptionNone),
             Token::Ok => self.parse_ok_expression(),
             Token::Error => self.parse_error_expression(),
+            // Handle built-in types as identifiers in expression context
+            Token::String | Token::Int | Token::Float | Token::Char | Token::Bool | Token::List | Token::Option | Token::Result | Token::Map | Token::Unit => {
+                Some(Expression::Identifier(self.curr.clone()))
+            },
             _ => {
                 self.no_prefix_parse_fn_error(self.curr.clone());
                 return None;
             }
         };
+
+    
 
         // Infix expressions
         while !self.peek_token_is(Token::SemiColon) && precedence < token_to_precedence(&self.peek)
@@ -280,6 +278,44 @@ impl Parser {
         }
 
         left
+    }
+
+    fn parse_record_expression(&mut self) -> Option<Expression> {
+        let mut fields = Vec::new();
+        
+        // Consume opening brace
+        if !self.curr_token_is(Token::LeftBrace) {
+            return None;
+        }
+        
+        while !self.peek_token_is(Token::RightBrace) {
+            self.next_token(); // move to field name
+            let field_name = self.parse_identifier()?;
+            
+            // Expect = for assignment
+            if !self.expect_peek(Token::Assign) {
+                return None;
+            }
+            
+            self.next_token(); // move to value
+            let field_value = self.parse_expression(Precedence::Lowest)?;
+            fields.push((field_name, field_value));
+            
+            // Handle comma if present
+            if self.peek_token_is(Token::Comma) {
+                self.next_token(); // consume comma
+            }
+        }
+        
+        // Consume closing brace and semicolon
+        if !self.expect_peek(Token::RightBrace) {
+            return None;
+        }
+        if self.peek_token_is(Token::SemiColon) {
+            self.next_token();
+        }
+        
+        Some(Expression::Literal(Literal::Record(fields)))
     }
 
     fn parse_function_literal(&mut self) -> Option<Expression> {

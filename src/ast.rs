@@ -9,7 +9,6 @@ pub enum Statement {
     Return(Expression),
     Comment(Identifier),
     Expression(Expression),
-    // Sum and Product types using the keyword `type`
     Type(Identifier, Type),
 }
 
@@ -23,6 +22,7 @@ pub enum Literal {
     Unit,
     List(Vec<Expression>),
     Record(Vec<(Identifier, Expression)>),
+    // TODO: Tuple, Map
 }
 
 #[derive(PartialEq, Debug, Clone)]

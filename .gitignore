@@ -1,3 +1,4 @@
 /target
 ast_ai_generated.rs
 parser_ai_generated.rs
+*.opl.log
