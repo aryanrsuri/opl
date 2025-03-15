@@ -1,3 +1,6 @@
+type Point = List * Int;
+type Person = { name: Option * string, age: int};
+type Team = { uuid: string, leader: Person, members: List * Person};
 
 let fc1 = {
     uuid = "23dkj4-2343jd8-32ldkjd32",
@@ -8,14 +11,13 @@ let fc1 = {
     edited_at = "2025-03-12",
 };
 
-
-// FIXME: does not parse 
+-- FIXME: does not parse 
 let fc2 = {
     fc1
     with uuid = "2344-23598243-234329834",
 };
 
-// FIXME: does not parse 
+-- FIXME: does not parse 
 let front_text = fc.front;
 let is_open = fc.open;
 

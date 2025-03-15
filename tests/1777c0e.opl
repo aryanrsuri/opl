@@ -1,4 +1,4 @@
-// Declaration of the Flashcard record type from `bf23303.opl`
+-- Declaration of the Flashcard record type from `bf23303.opl`
 let fc1 = {
     uuid = "23dkj4-2343jd8-32ldkjd32",
     front = "front",

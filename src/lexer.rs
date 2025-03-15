@@ -302,6 +302,11 @@ impl Lexer {
                 if self.peek() == '>' {
                     self.read();
                     Token::Arrow
+                } 
+                else if self.peek() == '-' {
+                    self.read();
+                    self.read();
+                    return self.read_comment()
                 } else {
                     Token::Minus
                 }
@@ -346,16 +351,7 @@ impl Lexer {
                     Token::LessThan
                 }
             }
-            '/' => {
-                if self.peek() == '/' {
-                    self.read();
-                    self.read();
-                    let comment = self.read_comment();
-                    return comment;
-                } else {
-                    Token::ForwardSlash
-                }
-            }
+            '/' => Token::ForwardSlash,
             '[' => Token::LeftBracket,
             '_' => Token::Underscore,
             ']' => Token::RightBracket,
