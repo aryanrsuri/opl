@@ -22,7 +22,7 @@ let control_expression = fn n, iter -> {
 type Cell = 
     | alive of int
     | dormant
-;
+    ;
 
 -- Type Alias 
 type Datetime = string;
