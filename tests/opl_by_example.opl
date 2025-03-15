@@ -20,12 +20,13 @@ let control_expression = fn n, iter -> {
 
 -- Tagged Unions
 type Cell = 
-    | Alive of int
-    | Dormant
+    | alive of int
+    | dormant
 ;
 
 -- Type Alias 
 type Datetime = string;
+type ids = list * int;
 
 -- Records
 type Flashcard = { 
@@ -35,6 +36,8 @@ type Flashcard = {
     open: bool,
     created_at: Datetime,
     edited_at: Datetime,
+    tags: map * string;
+    owner: option * string;
 };
 
 

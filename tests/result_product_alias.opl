@@ -1,8 +1,0 @@
-type ErrorCode = 
-    | OK of Int
-    | NOT_FOUND of Int
-    ;
-
-type Response = {
-    message: Result * (String, ErrorCode),
-};
