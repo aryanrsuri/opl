@@ -681,20 +681,6 @@ impl Parser {
     fn parse_type_annotation(&mut self) -> Option<Alias> {
         match &self.curr {
             // Handle type variables
-            Token::Polymorph => {
-                self.next_token(); // consume Polymorph
-                if let Token::Identifier(var) = &self.curr {
-                    Some(Alias {
-                        name: TypeConstructor::TypeVar(var.clone()),
-                        parameters: Vec::new(),
-                    })
-                } else {
-                    self.errors.push(ParseError::Log(
-                        "Expected identifier after polymorphic type variable".to_string()
-                    ));
-                    None
-                }
-            },
             // Handle lowercase primitive types
             Token::IntType => Some(Alias {
                 name: TypeConstructor::BuiltIn(Constructor::Int),
@@ -720,6 +706,55 @@ impl Parser {
                 name: TypeConstructor::BuiltIn(Constructor::Unit),
                 parameters: Vec::new(),
             }),
+            // Handle result type with tuple parameters
+            Token::Result => {
+                // Expect * after result
+                if !self.expect_peek(Token::Product) {
+                    self.errors.push(ParseError::Log(
+                        "Expected * after result type".to_string()
+                    ));
+                    return None;
+                }
+                
+                // Expect left parenthesis for tuple
+                if !self.expect_peek(Token::LeftParen) {
+                    self.errors.push(ParseError::Log(
+                        "Expected ( for result type parameters".to_string()
+                    ));
+                    return None;
+                }
+                
+                self.next_token(); // move past (
+                
+                // Parse first type parameter
+                let first_param = self.parse_type_annotation()?;
+                
+                // Expect comma between parameters
+                if !self.expect_peek(Token::Comma) {
+                    self.errors.push(ParseError::Log(
+                        "Expected , between result type parameters".to_string()
+                    ));
+                    return None;
+                }
+                
+                self.next_token(); // move past ,
+                
+                // Parse second type parameter
+                let second_param = self.parse_type_annotation()?;
+                
+                // Expect right parenthesis
+                if !self.expect_peek(Token::RightParen) {
+                    self.errors.push(ParseError::Log(
+                        "Expected ) after result type parameters".to_string()
+                    ));
+                    return None;
+                }
+                
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Result),
+                    parameters: vec![first_param, second_param],
+                })
+            },
             // Handle product types for list, map, and option
             Token::List | Token::Map | Token::Option => {
                 let constructor = match &self.curr {
@@ -742,39 +777,6 @@ impl Parser {
                 Some(Alias {
                     name: TypeConstructor::BuiltIn(constructor),
                     parameters: vec![param],
-                })
-            },
-            // Handle result type with two type parameters
-            Token::Result => {
-                // Expect * after result
-                if !self.expect_peek(Token::Product) {
-                    self.errors.push(ParseError::Log(
-                        "Expected * after result type".to_string()
-                    ));
-                    return None;
-                }
-                
-                self.next_token(); // move past *
-                
-                // Parse first type parameter
-                let first_param = self.parse_type_annotation()?;
-                
-                // Expect * between parameters
-                if !self.expect_peek(Token::Product) {
-                    self.errors.push(ParseError::Log(
-                        "Expected * between result type parameters".to_string()
-                    ));
-                    return None;
-                }
-                
-                self.next_token(); // move past *
-                
-                // Parse second type parameter
-                let second_param = self.parse_type_annotation()?;
-                
-                Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Result),
-                    parameters: vec![first_param, second_param],
                 })
             },
             // Custom type identifiers can be any case
