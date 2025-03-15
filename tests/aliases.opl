@@ -1,0 +1,4 @@
+type Number = int;
+type potential_number = option * int;
+type relu_result = result * (int, string);
+type Colony = list * cell;

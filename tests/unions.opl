@@ -1,0 +1,23 @@
+type hash = 
+    | SHA1
+    | SHA2
+    | SHA256
+    | SHA512
+    ;
+
+type cell = 
+    | alive of int
+    | dormant of int
+    | dead
+    ;
+
+type Colony = list * cell;
+
+-- Option, a polymorphic tagged union of type 'a
+
+let answer = Some 42;
+let not_answered = None;
+
+-- Result, a polymorphic tagged union of type ('a, 'b)
+let real = Ok 1;
+let not_real = Err "Negative values are not real.";
