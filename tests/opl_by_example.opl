@@ -1,13 +1,16 @@
+-- Variables and Values
 let x = 23435;
-
 let y = 2344.0 + (-213.1);
 
-let square = fn x -> x*x;
 
+-- Functions
+let square = fn x -> x*x;
 let complex_operation = fn x,y,z -> {
     let sum = x + y + z;
     return (x / sum);
 };
+
+-- Control Flow
 let control_expression = fn n, iter -> {
     if iter > n {
         return Ok n;
@@ -15,12 +18,16 @@ let control_expression = fn n, iter -> {
     return Error 0;
 };
 
+-- Tagged Unions
 type Cell = 
     | Alive of int
     | Dormant
 ;
 
+-- Type Alias 
 type Datetime = string;
+
+-- Records
 type Flashcard = { 
     uuid: string,
     front: string,

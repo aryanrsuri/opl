@@ -15,17 +15,17 @@ pub fn start() {
             continue;
         }
 
-        // Remove any leading and trailing whitespace.
-        let trimmed = input.trim();
-        if trimmed.is_empty() {
+        // Only trim trailing whitespace except newlines
+        let input = input.trim_matches(|c: char| c.is_whitespace() && c != '\n');
+        if input.is_empty() {
             continue; // skip empty input
         }
-        if trimmed.eq_ignore_ascii_case("exit") {
+        if input.eq_ignore_ascii_case("exit") {
             break;
         }
 
-        // Create a lexer and parser from the trimmed input.
-        let lexer = Lexer::new(trimmed);
+        // Create a lexer and parser from the input
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 

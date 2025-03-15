@@ -2,15 +2,6 @@ type Point = List * Int;
 type Person = { name: Option * string, age: int};
 type Team = { uuid: string, leader: Person, members: List * Person};
 
-let fc1 = {
-    uuid = "23dkj4-2343jd8-32ldkjd32",
-    front = "front",
-    back = "back",
-    open = false,
-    created_at =  "2025-03-12",
-    edited_at = "2025-03-12",
-};
-
 -- FIXME: does not parse 
 let fc2 = {
     fc1
@@ -25,3 +16,17 @@ let is_open = fc.open;
 print(front_text);
 print(is_open);
 print(fc.uuid);
+
+type Numbers = List * Int;
+type ReLuResult = Option * int;
+
+type Person = { 
+    name: string,
+    nick_name: Option * string,
+};
+
+let a = {
+    name = "aryan",
+    nick_name = None,
+    age = Ok 24,
+}

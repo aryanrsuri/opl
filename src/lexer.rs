@@ -16,7 +16,7 @@ pub enum Token {
     Union,
     Record,
     Ok,
-    Error,
+    Err,
     Some,
     None,
 
@@ -29,16 +29,10 @@ pub enum Token {
     UnitType,
     
     // Type Constructors (uppercase)
-    Int,
-    Float,
-    String,
-    Char,
-    Bool,
     List,
     Option,
     Result,
     Map,
-    Unit,
 
     // Literals
     Identifier(String),
@@ -241,22 +235,22 @@ impl Lexer {
             "char" => Token::CharType,
             "bool" => Token::BoolType,
             "unit" => Token::UnitType,
+            // Lowercase type constructors
+            "list" => Token::List,
+            "map" => Token::Map,
+            "option" => Token::Option,
+            "result" => Token::Result,
             // Uppercase type constructors
-            "Int" => Token::Int,
-            "Float" => Token::Float,
-            "String" => Token::String,
-            "Char" => Token::Char,
-            "Bool" => Token::Bool,
-            "List" => Token::List,
-            "Option" => Token::Option,
-            "Result" => Token::Result,
-            "Map" => Token::Map,
-            "Unit" => Token::Unit,
-            "Record" => Token::Record,
+            //"List" => Token::List,
+            // "Option" => Token::Option,
+            //"Result" => Token::Result,
+            //"Map" => Token::Map,
+            //"Record" => Token::Record,
             "Ok" => Token::Ok,
-            "Error" => Token::Error,
+            "Err" => Token::Err,
             "Some" => Token::Some,
             "None" => Token::None,
+            // TODO: Add the uppercase type constructors only for type module files
             _ => Token::Identifier(literal),
         };
     }
@@ -282,7 +276,7 @@ impl Lexer {
             '(' => {
                 if self.peek() == ')' {
                     self.read();
-                    Token::Unit
+                    Token::UnitType
                 } else {
                     Token::LeftParen
                 }

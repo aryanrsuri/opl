@@ -102,7 +102,7 @@ impl Parser {
             _ => self.parse_expression_statement(),
         }
     }
-    
+
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.next_token();
         let expr = match self.parse_expression(Precedence::Lowest) {
@@ -228,9 +228,9 @@ impl Parser {
             Token::Some => self.parse_some_expression(),
             Token::None => Some(Expression::OptionNone),
             Token::Ok => self.parse_ok_expression(),
-            Token::Error => self.parse_error_expression(),
+            Token::Err => self.parse_err_expression(),
             // Handle built-in types as identifiers in expression context
-            Token::String | Token::Int | Token::Float | Token::Char | Token::Bool | Token::List | Token::Option | Token::Result | Token::Map | Token::Unit => {
+            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result | Token::Map => {
                 Some(Expression::Identifier(self.curr.clone()))
             },
             _ => {
@@ -324,8 +324,8 @@ impl Parser {
                 self.next_token();
                 if let Token::Identifier(s) = &self.curr {
                     params.push(Token::Identifier(s.clone()));
-                } else if let Token::Unit = &self.curr {
-                    params.push(Token::Unit)
+                } else if let Token::UnitType = &self.curr {
+                    params.push(Token::UnitType)
                 } 
                 else {
                     self.errors.push(ParseError::Log(format!(
@@ -462,7 +462,7 @@ impl Parser {
         if self.peek_token_is(Token::SemiColon) {
             self.next_token();
         }
-        
+
         Some(Statement::Expression(expr))
     }
 
@@ -568,7 +568,8 @@ impl Parser {
         
         // After = we might see a | directly for union types
         if self.peek_token_is(Token::Vbar) {
-            self.next_token(); // move to |
+            self.next_token(); // consume =
+            self.next_token(); // consume |
             let type_def = self.parse_union_type()?;
             return Some(Statement::Type(name, type_def));
         }
@@ -587,8 +588,6 @@ impl Parser {
         let mut variants = Vec::new();
         
         loop {
-            self.next_token(); // move to variant name
-            
             if let Token::Identifier(_) = &self.curr {
                 let variant_name = self.curr.clone();
                 
@@ -608,6 +607,8 @@ impl Parser {
                     break;
                 }
                 self.next_token(); // consume |
+            } else if let Token::Vbar = &self.curr {
+                self.next_token(); // consume the Vbar
             } else {
                 self.errors.push(ParseError::Log(format!(
                     "Expected variant name, got {:?}",
@@ -648,7 +649,7 @@ impl Parser {
             self.next_token();
             
             // Parse type annotation
-            let type_ann = self.parse_record_type_annotation()?;
+            let type_ann = self.parse_type_annotation()?;
             fields.push((field_name, type_ann));
             
             // Handle comma if present
@@ -679,82 +680,22 @@ impl Parser {
 
     fn parse_type_annotation(&mut self) -> Option<Alias> {
         match &self.curr {
-            Token::Int => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Int),
-                parameters: Vec::new(),
-            }),
-            Token::Float => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Float),
-                parameters: Vec::new(),
-            }),
-            Token::String => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::String),
-                parameters: Vec::new(),
-            }),
-            Token::Char => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Char),
-                parameters: Vec::new(),
-            }),
-            Token::Bool => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Bool),
-                parameters: Vec::new(),
-            }),
-            Token::Unit => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Unit),
-                parameters: Vec::new(),
-            }),
-            // Type constructors must be uppercase and followed by * for parameters
-            Token::List | Token::Option | Token::Result | Token::Map => {
-                let constructor = match &self.curr {
-                    Token::List => Constructor::List,
-                    Token::Option => Constructor::Option,
-                    Token::Result => Constructor::Result,
-                    Token::Map => Constructor::Map,
-                    _ => unreachable!(),
-                };
-                
-                // Expect * after type constructor
-                if !self.expect_peek(Token::Product) {
+            // Handle type variables
+            Token::Polymorph => {
+                self.next_token(); // consume Polymorph
+                if let Token::Identifier(var) = &self.curr {
+                    Some(Alias {
+                        name: TypeConstructor::TypeVar(var.clone()),
+                        parameters: Vec::new(),
+                    })
+                } else {
                     self.errors.push(ParseError::Log(
-                        "Expected * after type constructor".to_string()
+                        "Expected identifier after polymorphic type variable".to_string()
                     ));
-                    return None;
+                    None
                 }
-                
-                self.next_token(); // move past *
-                let param = self.parse_type_annotation()?;
-                Some(Alias {
-                    name: TypeConstructor::BuiltIn(constructor),
-                    parameters: vec![param],
-                })
             },
-            // Custom type identifiers
-            Token::Identifier(name) => {
-                let first_char = name.chars().next().unwrap_or('_');
-                if first_char.is_lowercase() {
-                    self.errors.push(ParseError::Log(format!(
-                        "Custom type identifier '{}' must start with uppercase letter",
-                        name
-                    )));
-                    return None;
-                }
-                Some(Alias {
-                    name: TypeConstructor::Custom(self.curr.clone()),
-                    parameters: Vec::new(),
-                })
-            }
-            _ => {
-                self.errors.push(ParseError::Log(format!(
-                    "Expected type name, got {:?}",
-                    self.curr
-                )));
-                None
-            }
-        }
-    }
-
-    fn parse_record_type_annotation(&mut self) -> Option<Alias> {
-        match &self.curr {
+            // Handle lowercase primitive types
             Token::IntType => Some(Alias {
                 name: TypeConstructor::BuiltIn(Constructor::Int),
                 parameters: Vec::new(),
@@ -779,8 +720,15 @@ impl Parser {
                 name: TypeConstructor::BuiltIn(Constructor::Unit),
                 parameters: Vec::new(),
             }),
-            // Only allow List with * parameter
-            Token::List => {
+            // Handle product types for list, map, and option
+            Token::List | Token::Map | Token::Option => {
+                let constructor = match &self.curr {
+                    Token::List => Constructor::List,
+                    Token::Map => Constructor::Map,
+                    Token::Option => Constructor::Option,
+                    _ => unreachable!(),
+                };
+                
                 // Expect * after type constructor
                 if !self.expect_peek(Token::Product) {
                     self.errors.push(ParseError::Log(
@@ -790,32 +738,63 @@ impl Parser {
                 }
                 
                 self.next_token(); // move past *
-                let param = self.parse_record_type_annotation()?;
+                let param = self.parse_type_annotation()?;
                 Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::List),
+                    name: TypeConstructor::BuiltIn(constructor),
                     parameters: vec![param],
                 })
             },
-            // For custom types (including record types), require uppercase identifiers
-            Token::Identifier(_) => {
-                let first_char = match &self.curr {
-                    Token::Identifier(name) => name.chars().next().unwrap_or('_'),
-                    _ => '_',
-                };
-                if first_char.is_lowercase() {
-                    self.errors.push(ParseError::Log(format!(
-                        "Custom type identifier '{}' must start with uppercase letter",
-                        match &self.curr {
-                            Token::Identifier(name) => name,
-                            _ => "",
-                        }
-                    )));
+            // Handle result type with two type parameters
+            Token::Result => {
+                // Expect * after result
+                if !self.expect_peek(Token::Product) {
+                    self.errors.push(ParseError::Log(
+                        "Expected * after result type".to_string()
+                    ));
                     return None;
                 }
+                
+                self.next_token(); // move past *
+                
+                // Parse first type parameter
+                let first_param = self.parse_type_annotation()?;
+                
+                // Expect * between parameters
+                if !self.expect_peek(Token::Product) {
+                    self.errors.push(ParseError::Log(
+                        "Expected * between result type parameters".to_string()
+                    ));
+                    return None;
+                }
+                
+                self.next_token(); // move past *
+                
+                // Parse second type parameter
+                let second_param = self.parse_type_annotation()?;
+                
                 Some(Alias {
-                    name: TypeConstructor::Custom(self.curr.clone()),
-                    parameters: Vec::new(),
+                    name: TypeConstructor::BuiltIn(Constructor::Result),
+                    parameters: vec![first_param, second_param],
                 })
+            },
+            // Custom type identifiers can be any case
+            Token::Identifier(_) => {
+                let name = self.curr.clone();
+                // Check if this is a product type
+                if self.peek_token_is(Token::Product) {
+                    self.next_token(); // move past identifier
+                    self.next_token(); // move past *
+                    let param = self.parse_type_annotation()?;
+                    Some(Alias {
+                        name: TypeConstructor::Custom(name),
+                        parameters: vec![param],
+                    })
+                } else {
+                    Some(Alias {
+                        name: TypeConstructor::Custom(name),
+                        parameters: Vec::new(),
+                    })
+                }
             },
             Token::LeftBrace => {
                 self.errors.push(ParseError::Log(
@@ -845,8 +824,8 @@ impl Parser {
         Some(Expression::ResultOk(Box::new(expr)))
     }
 
-    fn parse_error_expression(&mut self) -> Option<Expression> {
-        self.next_token(); // consume 'Error'
+    fn parse_err_expression(&mut self) -> Option<Expression> {
+        self.next_token(); // consume 'Err'
         let expr = self.parse_expression(Precedence::Lowest)?;
         Some(Expression::ResultErr(Box::new(expr)))
     }
