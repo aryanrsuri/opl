@@ -247,6 +247,7 @@ impl Parser {
             match self.peek {
                 Token::Plus
                 | Token::Minus
+                | Token::Modulo
                 | Token::Product
                 | Token::ForwardSlash
                 | Token::Equal
@@ -353,15 +354,8 @@ impl Parser {
             // Validate block return semantics
             if let Some(last) = block.last() {
                 match last {
-                    Statement::Return(_) => (), // Valid return statement
-                    Statement::Expression(_) => {
-                        if self.peek_token_is(Token::SemiColon) {
-                            self.errors.push(ParseError::Log(
-                                "Function block's last expression must not end with semicolon".to_string()
-                            ));
-                            return None;
-                        }
-                    }
+                    Statement::Return(_) => (), 
+                    Statement::Expression(_) => (),
                     _ => {
                         self.errors.push(ParseError::Log(
                             "Function block must end with expression or return statement".to_string()
@@ -377,14 +371,7 @@ impl Parser {
             }
             block
         } else {
-            // Single-line expression becomes implicit return
             let expr = self.parse_expression(Precedence::Lowest)?;
-            if !self.peek_token_is(Token::SemiColon) {
-                self.errors.push(ParseError::Log(
-                    "Single-line function body must end with semicolon".to_string()
-                ));
-                return None;
-            }
             self.next_token(); // consume semicolon
             vec![Statement::Expression(expr)]
         };
@@ -481,12 +468,12 @@ impl Parser {
 
     fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
         //     Caret,
-        //     Modulo,
         //     Ampersand,
 
         let infix = match self.curr {
             Token::Plus => Infix::Plus,
             Token::Minus => Infix::Minus,
+            Token::Modulo => Infix::Modulo,
             Token::Product => Infix::Product,
             Token::ForwardSlash => Infix::ForwardSlash,
             Token::Equal => Infix::Equal,
@@ -517,16 +504,13 @@ impl Parser {
         if !self.expect_peek(Token::LeftBrace) {
             return None;
         }
-        self.next_token();
-
         let consequence = self.parse_block_statement();
-        let mut alternative = None;
+        let mut alternative: Option<Vec<Statement>> = None;
         if self.peek_token_is(Token::Else) {
             self.next_token();
             if !self.expect_peek(Token::LeftBrace) {
                 return None;
             }
-            self.next_token();
             alternative = Some(self.parse_block_statement());
         }
         Some(Expression::If {
@@ -544,10 +528,6 @@ impl Parser {
             if let Some(statement) = self.parse_statement() {
                 statements.push(statement);
             }
-            self.next_token();
-        }
-        
-        if self.curr_token_is(Token::RightBrace) {
             self.next_token();
         }
         

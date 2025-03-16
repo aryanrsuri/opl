@@ -1,0 +1,4 @@
+let relu = fn u -> {
+    let mu = 23235;
+    if mu > 10 { u } else { 123214 }
+};

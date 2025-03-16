@@ -1,0 +1,31 @@
+-- lambda functions do not require brackets and implicitly return
+
+let mask2 = fn s -> 2 * (s % 2);
+let ReLU = fn u -> if u > 0 { u } else { 0 };
+
+let relu = fn u -> {
+    let mu = 23235;
+    if mu > 10 { u } else { 123214 }
+};
+
+let even = fn n -> {
+    let m = n % 2;
+    if m == 0 { return true; } 
+    return false;
+};
+
+let control_expression = fn n, iter -> {
+    if iter > n {
+        return Ok n;
+    }  else {
+        return Error 0;
+    }
+};
+
+let if_else = fn test -> {
+    if test == "test" {
+        test
+    } else { 
+        "not a test"
+    };
+};
