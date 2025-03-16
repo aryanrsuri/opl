@@ -213,6 +213,7 @@ impl Parser {
                 }
             },
             Token::Boolean(b) => Some(Expression::Literal(Literal::Boolean(*b))),
+            Token::LeftBracket => self.parse_list_expression(),
             Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
             Token::LeftParen => {
                 self.next_token();
@@ -277,6 +278,33 @@ impl Parser {
         }
 
         left
+    }
+
+    fn parse_list_expression(&mut self) -> Option<Expression> {
+        let mut elements = vec![];
+        
+        if self.peek_token_is(Token::RightBracket) {
+            self.next_token();
+            return Some(Expression::Literal(Literal::List(elements)));
+        }
+        self.next_token();
+        match self.parse_expression(Precedence::Lowest) {
+            Some(expr) => elements.push(expr),
+            None => return None,
+        }
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            match self.parse_expression(Precedence::Lowest) {
+                Some(expr) => elements.push(expr),
+                None => return None,
+            }
+        }
+            
+        if !self.expect_peek(Token::RightBracket) {
+            return None;
+        }
+        Some(Expression::Literal(Literal::List(elements)))
     }
 
     fn parse_record_expression(&mut self) -> Option<Expression> {

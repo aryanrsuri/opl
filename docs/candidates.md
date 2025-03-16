@@ -1,11 +1,23 @@
+#### List Comprehension
+
+Equivilant to Haskell 
+```
+let even = fn n -> {
+    if n % 2 == 0 { true }
+    else { false }
+};
+
+let evens = [x | x <- [1..10] , even x];
+-- list * int -> [2,4,6,8,10]
+```
+
 #### Product of product types
 
 Product types of product types are nested in a parenthesis
 ```
 type tags = option * (list * string);
+-- option * (list * string) -> option * (list * string)
 ```
-
-
 
 #### Records field access
 
@@ -27,6 +39,7 @@ let flashcard1 = {
 Accessing a field should be done using a dot, `.`
 ```
 let f = flashcard1.front;
+-- string -> "What is the first letter of the alphabet?"
 ```
 
 #### Pattern matching
@@ -61,15 +74,4 @@ let next_light = match light with
 -- Match records to access values
 
 
-#### List Comprehension
-
-Equivilant to Haskell 
-```
-let even = fn n -> {
-    if n % 2 == 0 { true }
-    else { false }
-};
-
-let evens = [x | x <- [1..10] , even x];
--- list * int -> [2,4,6,8,10]
-```
+#### Polymorphic types

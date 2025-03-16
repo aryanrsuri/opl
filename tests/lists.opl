@@ -1,0 +1,2 @@
+let l = [1,2,3,4];
+let grid = [false,false,true,true,false,false,true,false,false];
