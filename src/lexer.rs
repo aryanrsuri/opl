@@ -24,7 +24,6 @@ pub enum Token {
     List,
     Option,
     Result,
-    Map,
 
     // Primitive
     IntType,
@@ -83,6 +82,15 @@ pub enum Token {
     SemiColon,    // ;
     Period,       // .
     Over,         // ..
+
+    // Built in functions
+    Map, // map : (a -> b) -> [a] -> [b]
+    Filter, // filter : (a -> bool) -> [a] -> [a]
+    Fold, // fold : (b -> a -> b) -> b -> [a] -> b
+    Any, // any : (a -> bool) -> [a] -> bool
+    All, // all : (a -> bool) -> [a] -> bool
+
+
 }
 
 #[derive(Debug)]
@@ -235,7 +243,6 @@ impl Lexer {
             "unit" => Token::UnitType,
             // Lowercase type constructors
             "list" => Token::List,
-            "map" => Token::Map,
             "option" => Token::Option,
             "result" => Token::Result,
             // Uppercase type constructors
@@ -248,6 +255,12 @@ impl Lexer {
             "Err" => Token::Err,
             "Some" => Token::Some,
             "None" => Token::None,
+            // Built in functions
+            "map" => Token::Map,
+            "filter" => Token::Filter,
+            "fold" => Token::Fold,
+            "any" => Token::Any,
+            "all" => Token::All,
             // TODO: Add the uppercase type constructors only for type module files
             _ => Token::Identifier(literal),
         };

@@ -15,7 +15,7 @@ let control_expression = fn n, iter -> {
     if iter > n {
         return Ok n;
     }  
-    return Error 0;
+    return Err 0;
 };
 
 -- Tagged Unions

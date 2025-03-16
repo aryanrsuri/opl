@@ -230,10 +230,11 @@ impl Parser {
             Token::None => Some(Expression::OptionNone),
             Token::Ok => self.parse_ok_expression(),
             Token::Err => self.parse_err_expression(),
-            // Handle built-in types as identifiers in expression context
-            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result | Token::Map => {
+            Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All => self.parse_builtin_function(self.curr.clone()),
+            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result => {
                 Some(Expression::Identifier(self.curr.clone()))
             },
+            // TODO: should there be a parse_builtin_function?
             _ => {
                 self.no_prefix_parse_fn_error(self.curr.clone());
                 return None;
@@ -265,14 +266,6 @@ impl Parser {
                     self.next_token();
                     left = self.parse_call_expression(left.unwrap());
                 }
-                // Lbraket => {
-                //    self.next_token();
-                //   left = self.parse_index_expression(left.unwrap());
-                // }
-                // Dot => {
-                //   self.next_token();
-                // left = self.parse_dot_expression(left.unwrap());
-                // }
                 _ => return left,
             }
         }
@@ -280,6 +273,14 @@ impl Parser {
         left
     }
 
+    fn parse_builtin_function(&mut self, function: Token) -> Option<Expression> {
+        self.next_token();
+        let args = self.parse_expression(Precedence::Lowest)?;
+        Some(Expression::BuiltIn {
+            function,
+            arguments: vec![args],
+        })
+    }
     fn parse_list_expression(&mut self) -> Option<Expression> {
         let mut elements = vec![];
         
@@ -449,10 +450,9 @@ impl Parser {
             return None;
         }
 
-        // Parse remaining arguments
         while self.peek_token_is(Token::Comma) {
-            self.next_token(); // consume comma
-            self.next_token(); // move to next argument
+            self.next_token(); 
+            self.next_token();
             if let Some(arg) = self.parse_expression(Precedence::Lowest) {
                 arguments.push(arg);
             } else {
@@ -763,11 +763,10 @@ impl Parser {
                     parameters: vec![first_param, second_param],
                 })
             },
-            // Handle product types for list, map, and option
-            Token::List | Token::Map | Token::Option => {
+            // Handle product types for list, and option
+            Token::List | Token::Option => {
                 let constructor = match &self.curr {
                     Token::List => Constructor::List,
-                    Token::Map => Constructor::Map,
                     Token::Option => Constructor::Option,
                     _ => unreachable!(),
                 };

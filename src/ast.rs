@@ -58,6 +58,10 @@ pub enum Expression {
         expr: Box<Expression>,
         arms: Vec<(Pattern, Program)>,
     },
+    BuiltIn {
+        function: Identifier,
+        arguments: Vec<Expression>,
+    },
 }
 
 #[derive(PartialEq, Debug, Clone)]

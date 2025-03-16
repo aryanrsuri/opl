@@ -18,7 +18,7 @@ let control_expression = fn n, iter -> {
     if iter > n {
         return Ok n;
     }  else {
-        return Error 0;
+        return Err 0;
     }
 };
 

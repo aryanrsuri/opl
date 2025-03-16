@@ -230,7 +230,7 @@ A result type can express an outcome as either a success `Ok` of type 'a or a fa
 Example
 ```
 Ok 42;
-Error "Bruh";
+Err "Bruh";
 ```
 
 ### Record
