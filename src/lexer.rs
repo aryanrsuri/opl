@@ -24,6 +24,7 @@ pub enum Token {
     List,
     Option,
     Result,
+    HashMap,
 
     // Primitive
     IntType,
@@ -246,6 +247,7 @@ impl Lexer {
             "list" => Token::List,
             "option" => Token::Option,
             "result" => Token::Result,
+            "hashmap" => Token::HashMap,
             // Uppercase type constructors
             //"List" => Token::List,
             // "Option" => Token::Option,

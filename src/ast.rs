@@ -22,6 +22,7 @@ pub enum Literal {
     Unit,
     List(Vec<Expression>),
     Record(Vec<(Identifier, Expression)>),
+    HashMap(Vec<(Expression, Expression)>),
     // TODO: Tuple, Map
 }
 
@@ -99,7 +100,7 @@ pub enum Constructor {
     List,
     Option,
     Result,
-    Map,
+    HashMap,
     Unit,
 }
 

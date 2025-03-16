@@ -231,10 +231,9 @@ impl Parser {
             Token::Ok => self.parse_ok_expression(),
             Token::Err => self.parse_err_expression(),
             Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All => self.parse_builtin_function(self.curr.clone()),
-            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result => {
+            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result | Token::HashMap => {
                 Some(Expression::Identifier(self.curr.clone()))
             },
-            // TODO: should there be a parse_builtin_function?
             _ => {
                 self.no_prefix_parse_fn_error(self.curr.clone());
                 return None;
@@ -715,7 +714,12 @@ impl Parser {
                 parameters: Vec::new(),
             }),
             // Handle result type with tuple parameters
-            Token::Result => {
+            Token::Result | Token::HashMap => {
+                let constructor = match &self.curr {
+                    Token::Result => Constructor::Result,
+                    Token::HashMap => Constructor::HashMap,
+                    _ => unreachable!(),
+                };
                 // Expect * after result
                 if !self.expect_peek(Token::Product) {
                     self.errors.push(ParseError::Log(
@@ -759,7 +763,7 @@ impl Parser {
                 }
                 
                 Some(Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Result),
+                    name: TypeConstructor::BuiltIn(constructor),
                     parameters: vec![first_param, second_param],
                 })
             },
