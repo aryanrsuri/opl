@@ -11,6 +11,8 @@ pub enum Token {
     With,
     Of,
     Raise,
+    Use,
+    Std,
 
     // Algebraic
     Union,
@@ -19,8 +21,12 @@ pub enum Token {
     Err,
     Some,
     None,
+    List,
+    Option,
+    Result,
+    Map,
 
-    // Primitive Types (lowercase)
+    // Primitive
     IntType,
     FloatType,
     StringType,
@@ -28,12 +34,6 @@ pub enum Token {
     BoolType,
     UnitType,
     
-    // Type Constructors (uppercase)
-    List,
-    Option,
-    Result,
-    Map,
-
     // Literals
     Identifier(String),
     StringLiteral(String),
@@ -41,8 +41,6 @@ pub enum Token {
     FloatLiteral(String),
     Comment(String),
     Boolean(bool), 
-    Use,
-    Std,
 
     // Parsing
     End,
