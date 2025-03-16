@@ -18,6 +18,7 @@ pub enum Literal {
     Float(f64),
     String(String),
     Boolean(bool),
+    // Char is not used
     Char(char),
     Unit,
     List(Vec<Expression>),

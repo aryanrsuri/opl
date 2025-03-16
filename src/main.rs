@@ -3,6 +3,8 @@ pub mod ast_ai_generated;
 pub mod lexer;
 pub mod parser;
 pub mod repl;
+pub mod object;
+pub mod evaluator;
 use std::env;
 use std::fs;
 fn main() {

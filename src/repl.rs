@@ -2,6 +2,7 @@
 
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::evaluator::Evaluator;
 use std::io::{self, Write};
 
 pub fn start() {
@@ -28,6 +29,8 @@ pub fn start() {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
+        let mut evaluator = Evaluator::new();
+        let result = evaluator.eval(&program);
 
         // If there are parse errors, print them.
         if !parser.errors.is_empty() {
@@ -37,7 +40,7 @@ pub fn start() {
             }
         } else {
             // Otherwise, print the AST.
-            println!("{:#?}", program);
+            println!("{:#?}", result);
         }
     }
 }
