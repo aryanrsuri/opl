@@ -64,6 +64,7 @@ pub enum Token {
     Vbar,         // |
     Pipe,         // |>
     Arrow,        // ->
+    LeftArrow,    // <-
     Modulo,       // %
     Ampersand,    // &
     Caret,        // ^
@@ -352,6 +353,9 @@ impl Lexer {
                 if self.peek() == '=' {
                     self.read();
                     Token::LTOrEqual
+                } else if self.peek() == '-' {
+                    self.read();
+                    Token::LeftArrow
                 } else {
                     Token::LessThan
                 }

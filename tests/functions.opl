@@ -1,7 +1,9 @@
 -- lambda functions do not require brackets and implicitly return
 
 let mask2 = fn s -> 2 * (s % 2);
+
 let ReLU = fn u -> if u > 0 { u } else { 0 };
+
 
 let relu = fn u -> {
     let mu = 23235;
@@ -29,3 +31,12 @@ let if_else = fn test -> {
         "not a test"
     };
 };
+
+-- function calls required parenthesis around the arguements.
+even(2)
+control_expression(10, 1)
+
+-- there are several inbuilt functions common to FPLs: map, filter, fold, all, any
+
+let sq = fn x -> x*x;
+map(sq, [1,2,3]);

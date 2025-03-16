@@ -7,8 +7,9 @@ let even = fn n -> {
     else { false }
 };
 
-let evens = [x | x <- [1..10] , even x];
+let evens = [x | x <- [1,2,3,4,5,6,7,8,9,10] , even x];
 -- list * int -> [2,4,6,8,10]
+
 ```
 
 #### Product of product types
