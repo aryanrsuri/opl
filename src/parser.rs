@@ -213,6 +213,7 @@ impl Parser {
                 }
             },
             Token::Boolean(b) => Some(Expression::Literal(Literal::Boolean(*b))),
+            Token::UnitType => Some(Expression::Literal(Literal::Unit)),
             Token::LeftBracket => self.parse_list_expression(),
             Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
             Token::LeftParen => {
@@ -231,7 +232,7 @@ impl Parser {
             Token::Ok => self.parse_ok_expression(),
             Token::Err => self.parse_err_expression(),
             Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All => self.parse_builtin_function(self.curr.clone()),
-            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType | Token::UnitType | Token::List | Token::Option | Token::Result | Token::HashMap => {
+            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType |  Token::List | Token::Option | Token::Result | Token::HashMap => {
                 Some(Expression::Identifier(self.curr.clone()))
             },
             _ => {
@@ -346,7 +347,6 @@ impl Parser {
     }
 
     fn parse_function_literal(&mut self) -> Option<Expression> {
-        // Syntax: fn <params> -> <body> or fn <params> -> { <body> }
         let params = {
             let mut params = Vec::new();
             while self.peek != Token::Arrow {
@@ -354,9 +354,9 @@ impl Parser {
                 if let Token::Identifier(s) = &self.curr {
                     params.push(Token::Identifier(s.clone()));
                 } else if let Token::UnitType = &self.curr {
-                    params.push(Token::UnitType)
-                } 
-                else {
+                    params.push(Token::UnitType);
+                    break;
+                } else {
                     self.errors.push(ParseError::Log(format!(
                         "expected identifier in function parameters, got {:?}",
                         self.curr

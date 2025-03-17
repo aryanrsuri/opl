@@ -1,5 +1,4 @@
 pub mod ast;
-pub mod ast_ai_generated;
 pub mod lexer;
 pub mod parser;
 pub mod repl;
@@ -7,25 +6,26 @@ pub mod object;
 pub mod evaluator;
 use std::env;
 use std::fs;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
-    // Create tests directory if it doesn't exist
+
+    // Check for --eval flag
+    let evaluate = args.contains(&"--eval".to_string());
+
     fs::create_dir_all("tests").expect("Failed to create tests directory");
-    
+
     match args.get(1) {
-        Some(path) => {
-            let full_path = format!("tests/{}", path);
-            let input = match fs::read_to_string(&full_path) {
+        Some(arg) if arg != "--eval" => {
+            let input = match fs::read_to_string(arg) {
                 Ok(content) => content,
                 Err(e) => {
-                    eprintln!("Error reading file '{}': {}", full_path, e);
+                    eprintln!("Error reading file '{}': {}", arg, e);
                     return;
                 }
             };
 
-            // Create log file
-            let log_path = format!("tests/{}.log", path);
+            let log_path = format!("{}.log", arg);
             let log_file = fs::File::create(log_path).expect("Failed to create log file");
 
             let lexer = lexer::Lexer::new(&input);
@@ -49,10 +49,10 @@ fn main() {
                 parser.log(&msg);
             }
         },
-        None => {
-            println!("Usage: cargo run <filename>");
-            println!("No file provided, entering REPL mode...");
-            repl::start();
+        _ => {
+            println!("[USAGE] \n\t cargo run <filename> \n\t cargo run -- --eval \n\t cargo run");
+            println!("No file provided, entering REPL mode (evaluate: {})...", evaluate);
+            repl::start(evaluate);
         }
     }
 }

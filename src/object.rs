@@ -13,13 +13,32 @@ pub enum Object {
     Return(Box<Object>),
 
     // Option
-    Some(Box<Object>),
-    None,
+    OptionSome(Box<Object>),
+    OptionNone,
+    // Result
+    ResultOk(Box<Object>),
+    ResultErr(Box<Object>),
+
+    // Type Errors
+    TypeError(String),
 }
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            Object::Integer(value) => write!(f, "{}", value),
+            Object::Float(ref value) => write!(f, "{}", value),
+            Object::Boolean(ref value) => write!(f, "{}", value),
+            Object::String(ref value) => write!(f, "{}", value),
+            Object::Unit => write!(f, "()"),
+            Object::OptionSome(ref value) => write!(f, "Some({})", value),
+            Object::OptionNone => write!(f, "None"),
+            Object::List(ref value) => write!(f, "{:?}", value),
+            Object::Return(ref value) => write!(f, "{}", value),
+            Object::ResultOk(ref value) => write!(f, "{}", value),
+            Object::ResultErr(ref value) => write!(f, "{}", value),
+            Object::TypeError(ref value) => write!(f, "{}", value),
+            // ref value => write!(f, "{}", value),
+        }
     }
 }
-

@@ -1,13 +1,13 @@
 // repl.rs
 
+use crate::evaluator::Evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::evaluator::Evaluator;
 use std::io::{self, Write};
 
-pub fn start() {
+pub fn start(evaluate: bool) {
     loop {
-        print!(">> ");
+        print!("$ ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -19,7 +19,7 @@ pub fn start() {
         // Only trim trailing whitespace except newlines
         let input = input.trim_matches(|c: char| c.is_whitespace() && c != '\n');
         if input.is_empty() {
-            continue; // skip empty input
+            continue;
         }
         if input.eq_ignore_ascii_case("exit") {
             break;
@@ -30,8 +30,6 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new();
-        let result = evaluator.eval(&program);
-
         // If there are parse errors, print them.
         if !parser.errors.is_empty() {
             println!("Parser errors:");
@@ -39,8 +37,14 @@ pub fn start() {
                 println!("Errors {:#?}", error);
             }
         } else {
-            // Otherwise, print the AST.
-            println!("{:#?}", result);
+            if evaluate {
+                match evaluator.eval(&program) {
+                    Some(object) => println!("# {}", object),
+                    None => (),
+                };
+            } else {
+                println!("{:?}", program);
+            }
         }
     }
 }
