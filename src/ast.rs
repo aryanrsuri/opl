@@ -1,6 +1,7 @@
 use crate::lexer::Token;
 pub type Program = Vec<Statement>;
 
+// FIXME: This should simply be a 'String.
 pub type Identifier = Token;
 
 #[derive(PartialEq, Debug, Clone)]

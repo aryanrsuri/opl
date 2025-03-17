@@ -1,11 +1,13 @@
 // repl.rs
 
-use crate::evaluator::Evaluator;
+use crate::{environment::Env, evaluator::Evaluator};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use std::io::{self, Write};
+use std::{cell::RefCell, io::{self, Write}, rc::Rc};
 
 pub fn start(evaluate: bool) {
+
+    let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
@@ -31,7 +33,6 @@ pub fn start(evaluate: bool) {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new();
         if !parser.errors.is_empty() {
             println!("Parser errors:");
             for error in parser.errors {

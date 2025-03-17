@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Unit,
     Integer(i64),
@@ -20,8 +20,9 @@ pub enum Object {
     ResultErr(Box<Object>),
 
     // Type Errors
-    TypeError(String),
+    Error(String),
 }
+
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -37,8 +38,7 @@ impl fmt::Display for Object {
             Object::Return(ref value) => write!(f, "{}", value),
             Object::ResultOk(ref value) => write!(f, "{}", value),
             Object::ResultErr(ref value) => write!(f, "{}", value),
-            Object::TypeError(ref value) => write!(f, "{}", value),
-            // ref value => write!(f, "{}", value),
+            Object::Error(ref value) => write!(f, "{}", value),
         }
     }
 }

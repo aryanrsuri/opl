@@ -4,6 +4,7 @@ pub mod parser;
 pub mod repl;
 pub mod object;
 pub mod evaluator;
+pub mod environment;
 use std::env;
 use std::fs;
 
