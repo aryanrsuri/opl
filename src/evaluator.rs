@@ -29,7 +29,16 @@ impl Evaluator {
     fn eval_statement(&mut self, statement: &Statement) -> Option<Object> {
         match statement {
             Statement::Expression(expression) => self.eval_expression(expression),
+            Statement::Return(expression) => self.eval_return(expression),
             _ => unreachable!("[ERR] Only expression statement evaluation works."),
+        }
+    }
+
+    fn eval_return(&mut self, expression: &Expression) -> Option<Object> {
+        let result = self.eval_expression(expression);
+        match result {
+            Some(result) => Some(Object::Return(Box::new(result))),
+            None => None,
         }
     }
 
@@ -74,6 +83,7 @@ impl Evaluator {
         let mut result: Option<Object> = None;
         for statement in program {
             match self.eval_statement(statement) {
+                Some(Object::Return(value)) => return Some(Object::Return(value)),
                 object => result = object,
             }
         }
