@@ -8,6 +8,14 @@ impl Evaluator {
         Self {}
     }
 
+    pub fn is_truthy(&self, object: &Object) -> bool {
+        match object {
+            Object::Boolean(true) => true,
+            Object::Boolean(false) => false,
+            _ => true,
+        }
+    }
+
     pub fn eval(&mut self, program: &Program) -> Option<Object> {
         let mut result: Option<Object> = None;
         for statement in program {
@@ -27,6 +35,7 @@ impl Evaluator {
 
     fn eval_expression(&mut self, expression: &Expression) -> Option<Object> {
         match expression {
+            Expression::If { condition, consequence, alternative } => self.eval_if(condition, consequence, alternative),
             Expression::Literal(literal) => Some(self.eval_literal(literal)),
             Expression::OptionNone => Some(Object::OptionNone),
             Expression::Prefix(prefix, expression) => self
@@ -45,6 +54,33 @@ impl Evaluator {
         }
     }
 
+    // MANIFEST: If Eval
+    fn eval_if(&mut self, condition: &Expression, consequence: &Program, alternative: &Option<Program>) -> Option<Object> {
+        let condition = match self.eval_expression(condition) {
+            Some(condition) => condition,
+            None => return None,
+        };
+
+        if self.is_truthy(&condition) {
+            self.eval_block(consequence)
+        } else if let Some(alt) = alternative {
+            self.eval_block(alt)
+        } else {
+            None
+        }
+    }
+
+    fn eval_block(&mut self, program: &Program) -> Option<Object> {
+        let mut result: Option<Object> = None;
+        for statement in program {
+            match self.eval_statement(statement) {
+                object => result = object,
+            }
+        }
+        result
+    }
+
+
     fn eval_literal(&mut self, literal: &Literal) -> Object {
         match literal {
             Literal::Integer(value) => Object::Integer(*value),
@@ -57,7 +93,7 @@ impl Evaluator {
     }
 
     // MANIFEST: Infix Eval
-    #[allow(unused_variables)]
+
     fn eval_infix(&mut self, infix: &Infix, left: Object, right: Object) -> Object {
         match left {
             Object::Integer(left_value) => {
