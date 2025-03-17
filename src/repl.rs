@@ -16,21 +16,22 @@ pub fn start(evaluate: bool) {
             continue;
         }
 
-        // Only trim trailing whitespace except newlines
         let input = input.trim_matches(|c: char| c.is_whitespace() && c != '\n');
         if input.is_empty() {
             continue;
         }
-        if input.eq_ignore_ascii_case("exit") {
+        if input.trim() == "exit" {
             break;
         }
+        if input.trim() == "clear" {
+            print!("\x1b[2J\x1b[H");
+            continue;
+        }
 
-        // Create a lexer and parser from the input
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new();
-        // If there are parse errors, print them.
         if !parser.errors.is_empty() {
             println!("Parser errors:");
             for error in parser.errors {

@@ -57,8 +57,74 @@ impl Evaluator {
     }
 
     // MANIFEST: Infix Eval
+    #[allow(unused_variables)]
     fn eval_infix(&mut self, infix: &Infix, left: Object, right: Object) -> Object {
-        todo!("Infix evaluation")
+        match left {
+            Object::Integer(left_value) => {
+                if let Object::Integer(right_value) = right {
+                    self.eval_integer_infix(infix, left_value, right_value)
+                } else {
+                    Object::TypeError(String::from("Type Mismatch for infix: int infix int -> int"))
+                }
+            },
+            Object::Float(left_value) => {
+                if let Object::Float(right_value) = right {
+                    self.eval_float_infix(infix, left_value, right_value)
+                } else {
+                    Object::TypeError(String::from("Type Mismatch for infix: float infix float -> float"))
+                }
+            },
+            Object::Boolean(left_value) => {
+                if let Object::Boolean(right_value) = right {
+                    self.eval_boolean_infix(infix, left_value, right_value)
+                } else {
+                    Object::TypeError(String::from("Type Mismatch for infix: bool infix bool -> bool"))
+                }
+            },
+            _ => Object::TypeError(String::from("Type Mismatch for infix: int infix int -> int | bool infix bool -> bool")),
+        }
+    }
+
+    fn eval_boolean_infix(&mut self, infix: &Infix, left: bool, right: bool) -> Object {
+        match infix {
+            Infix::Equal=> Object::Boolean(left == right),
+            Infix::DoesNotEqual => Object::Boolean(left != right),
+            _ => Object::TypeError(String::from("Type Mismatch for infix: bool infix bool -> bool")),
+        }
+    }
+
+    fn eval_float_infix(&mut self, infix: &Infix, left: f64, right: f64) -> Object {
+        match infix {
+            Infix::Plus => Object::Float(left + right),
+            Infix::Minus => Object::Float(left - right),
+            Infix::Product=> Object::Float(left * right),
+            Infix::ForwardSlash => Object::Float(left / right),
+            Infix::Modulo => Object::Float(left % right),
+            Infix::Equal=> Object::Boolean(left == right),
+            Infix::DoesNotEqual => Object::Boolean(left != right),
+            Infix::GreaterThan => Object::Boolean(left > right),
+            Infix::LessThan => Object::Boolean(left < right),
+            Infix::GTOrEqual => Object::Boolean(left >= right),
+            Infix::LTOrEqual=> Object::Boolean(left <= right),
+            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => Object::TypeError(String::from("Type Mismatch for infix: int infix int -> int")),
+        }
+    }
+
+    fn eval_integer_infix(&mut self, infix: &Infix, left: i64, right: i64) -> Object {
+        match infix {
+            Infix::Plus => Object::Integer(left + right),
+            Infix::Minus => Object::Integer(left - right),
+            Infix::Product=> Object::Integer(left * right),
+            Infix::ForwardSlash => Object::Integer(left/ right),
+            Infix::Modulo => Object::Integer(left % right),
+            Infix::Equal=> Object::Boolean(left == right),
+            Infix::DoesNotEqual => Object::Boolean(left != right),
+            Infix::GreaterThan => Object::Boolean(left > right),
+            Infix::LessThan => Object::Boolean(left < right),
+            Infix::GTOrEqual => Object::Boolean(left >= right),
+            Infix::LTOrEqual=> Object::Boolean(left <= right),
+            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => Object::TypeError(String::from("Type Mismatch for infix: int infix int -> int")),
+        }
     }
 
     // MANIFEST: Prefix Eval
@@ -81,10 +147,9 @@ impl Evaluator {
     }
 
     fn eval_minus_prefix(&mut self, object: Object) -> Object {
-        // NOTE: The value stored is simply the actual integer value, so no -1 * value is necessary
         match object {
-            Object::Integer(value) => Object::Integer(value),
-            Object::Float(value) => Object::Float(value),
+            Object::Integer(value) => Object::Integer(-value),
+            Object::Float(value) => Object::Float(-value),
             _ => Object::TypeError(String::from(
                 "Type Mismatch for (-): int -> int | float -> float",
             )),
