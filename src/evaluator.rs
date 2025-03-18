@@ -4,6 +4,7 @@ use crate::ast::*;
 use crate::lexer::Token;
 use crate::object::Object;
 use crate::environment::Env;
+use crate::ast::Identifier;
 pub struct Evaluator {
     pub env: Rc<RefCell<Env>>,
 }
@@ -68,6 +69,8 @@ impl Evaluator {
             Expression::If { condition, consequence, alternative } => self.eval_if(condition, consequence, alternative),
             Expression::Literal(literal) => Some(self.eval_literal(literal)),
             Expression::OptionNone => Some(Object::OptionNone),
+            Expression::Function { parameters, body } => Some(Object::Function(parameters.clone(), body.clone(), Rc::clone(&self.env))),
+            Expression::Call { function, arguments } => Some(self.eval_call(function, arguments)),
             Expression::Prefix(prefix, expression) => self
                 .eval_expression(&expression) // Evalute the right hand side
                 .map(|right| self.eval_prefix(prefix, right)),
@@ -84,9 +87,46 @@ impl Evaluator {
         }
     }
 
+    fn eval_call(&mut self, function: &Expression, arguments: &Vec<Expression>) -> Object {
+        let arguments = arguments
+            .iter()
+            .map(|argument| self.eval_expression(argument).unwrap_or(Object::Error(String::from("Expected value"))))
+            .collect::<Vec<Object>>();
+
+        let (parameters, body, env) = match self.eval_expression(function) {
+            Some(Object::Function(parameters, body, env)) => (parameters, body, env),
+            _ => return Object::Error(String::from("Expected function")),
+        };
+
+        if parameters.len() != arguments.len() {
+            return Object::Error(format!("Expected {} arguments, got {}", parameters.len(), arguments.len()));
+        }
+
+        let mut inner_env = Env::new_with_outer(Rc::clone(&env));
+        
+        for (ident, arg) in parameters.iter().zip(arguments.iter()) {
+            if let Token::Identifier(name) = ident.clone() {
+                inner_env.set(name, arg.clone());
+            } else {
+                return Object::Error(format!("Expected identifier, got {:?}", ident));
+            }
+        };
+
+        let current_env = Rc::clone(&self.env);
+        self.env = Rc::new(RefCell::new(inner_env));
+        let object = self.eval_block(&body);
+        self.env = current_env;
+
+        match object {
+            Some(Object::Return(value)) => *value,
+            Some(o) => o,
+            None => Object::Error(String::from("Expected return value")),
+        }
+    }
+
     fn eval_identifier(&mut self, identifier: &Identifier) -> Option<Object> {
         if let Token::Identifier(name) = identifier {
-            match self.env.borrow().get(name) {
+            match self.env.borrow_mut().get(name.clone()) {
                 Some(value) => Some(value.clone()),
                 None => Some(Object::Error(format!("Undefined variable: {:?}", name))),
             }
@@ -95,7 +135,6 @@ impl Evaluator {
         }
     }
 
-    // MANIFEST: If Eval
     fn eval_if(&mut self, condition: &Expression, consequence: &Program, alternative: &Option<Program>) -> Option<Object> {
         let condition = match self.eval_expression(condition) {
             Some(condition) => condition,
@@ -135,8 +174,6 @@ impl Evaluator {
             _ => unreachable!("[ERR] Only primitive literal evaluation works."),
         }
     }
-
-    // MANIFEST: Infix Eval
 
     fn eval_infix(&mut self, infix: &Infix, left: Object, right: Object) -> Object {
         match left {
