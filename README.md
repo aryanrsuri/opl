@@ -20,16 +20,22 @@ Opl (pronounced "opal") is a purely functional languague focused on analytical t
 - opl_by_example: mirroring the now famous go_by_example webpage
 - (some_grammar).opl: Opl file containing examples for one specific file
 
-### Usage
+### The Opl Toolchain
 
-Currently the interpreter can take in opl source code and return the ast-program. The two ways of consuming source coud is through a repl or a *.opl file.
+The Opl toolchain subsists of the following tools.
 
-Run the repl 
 ```bash
-cargo run
-```
+Opl is a general purpose functional programming language.
 
-Parse a file (the file must live in a tests/ folder)
-```bash
-cargo run -- file_name.opl
+Usage: opl [COMMAND]
+
+Commands:
+  repl  
+  run   
+  zen   
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
 ```
