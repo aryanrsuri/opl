@@ -6,7 +6,7 @@ use crate::{lexer, parser, evaluator, environment, repl};
 
 const VERSION: &str = "0.3.3a2a3d6-rc";
 const ABOUT: &str = "Opl is a general purpose functional programming language.";
-const ZEN: &str = "* Strive to be pure and orthogonal";
+const ZEN: &str = "\n* Strive to be pure.\n* Simplicity over complexity.\n* Elegance over verbosity.\n";
 
 #[derive(Parser)]
 #[command(
@@ -22,11 +22,17 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Repl,
+    #[command(about = "Start an interactive REPL session. Optional --eval flag to evaluate the input.")]
+    Repl {
+        #[arg(short, long)]
+        eval: bool,
+    },
+    #[command(about = "Execute a .opl file. Optional --eval flag to evaluate the input.")]
     Run {
         #[arg(name = "FILE")]
         file: String,
     },
+    #[command(about = "Print our zen and exit.")]
     Zen,
 }
 
@@ -38,9 +44,9 @@ pub fn run() {
             let _ = Cli::parse_from(&["opl", "--help"]);
         },
         Some(command) => match command {
-            Commands::Repl => {
+            Commands::Repl { eval } => {
                 println!("Starting OPL REPL...");
-                repl::start(true);
+                repl::start(eval);
             },
             Commands::Run { file } => {
                 let input = match fs::read_to_string(&file) {
@@ -65,7 +71,7 @@ pub fn run() {
                 }
 
                 if let Some(result) = evaluator.eval(&program) {
-                    println!("Result: {:?}", result);
+                    println!("{}", result);
                 }
             },
             Commands::Zen => {

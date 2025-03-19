@@ -1,10 +1,10 @@
-use std::rc::Rc;
-use std::cell::RefCell;
+use crate::ast::Identifier;
 use crate::ast::*;
+use crate::environment::Env;
 use crate::lexer::Token;
 use crate::object::Object;
-use crate::environment::Env;
-use crate::ast::Identifier;
+use std::cell::RefCell;
+use std::rc::Rc;
 pub struct Evaluator {
     pub env: Rc<RefCell<Env>>,
 }
@@ -47,13 +47,18 @@ impl Evaluator {
                 self.env.borrow_mut().set(name.clone(), value);
                 None
             } else {
-                Some(Object::Error(format!("Expected identifier, got {:?}", identifier)))
+                Some(Object::Error(format!(
+                    "Expected identifier, got {:?}",
+                    identifier
+                )))
             }
         } else {
-            Some(Object::Error(format!("Expected value, got {:?}", expression)))
+            Some(Object::Error(format!(
+                "Expected value, got {:?}",
+                expression
+            )))
         }
     }
-
 
     fn eval_return(&mut self, expression: &Expression) -> Option<Object> {
         let result = self.eval_expression(expression);
@@ -66,11 +71,22 @@ impl Evaluator {
     fn eval_expression(&mut self, expression: &Expression) -> Option<Object> {
         match expression {
             Expression::Identifier(identifier) => self.eval_identifier(identifier),
-            Expression::If { condition, consequence, alternative } => self.eval_if(condition, consequence, alternative),
+            Expression::If {
+                condition,
+                consequence,
+                alternative,
+            } => self.eval_if(condition, consequence, alternative),
             Expression::Literal(literal) => Some(self.eval_literal(literal)),
             Expression::OptionNone => Some(Object::OptionNone),
-            Expression::Function { parameters, body } => Some(Object::Function(parameters.clone(), body.clone(), Rc::clone(&self.env))),
-            Expression::Call { function, arguments } => Some(self.eval_call(function, arguments)),
+            Expression::Function { parameters, body } => Some(Object::Function(
+                parameters.clone(),
+                body.clone(),
+                Rc::clone(&self.env),
+            )),
+            Expression::Call {
+                function,
+                arguments,
+            } => Some(self.eval_call(function, arguments)),
             Expression::Prefix(prefix, expression) => self
                 .eval_expression(&expression) // Evalute the right hand side
                 .map(|right| self.eval_prefix(prefix, right)),
@@ -90,7 +106,10 @@ impl Evaluator {
     fn eval_call(&mut self, function: &Expression, arguments: &Vec<Expression>) -> Object {
         let arguments = arguments
             .iter()
-            .map(|argument| self.eval_expression(argument).unwrap_or(Object::Error(String::from("Expected value"))))
+            .map(|argument| {
+                self.eval_expression(argument)
+                    .unwrap_or(Object::Error(String::from("Expected value")))
+            })
             .collect::<Vec<Object>>();
 
         let (parameters, body, env) = match self.eval_expression(function) {
@@ -99,18 +118,22 @@ impl Evaluator {
         };
 
         if parameters.len() != arguments.len() {
-            return Object::Error(format!("Expected {} arguments, got {}", parameters.len(), arguments.len()));
+            return Object::Error(format!(
+                "Expected {} arguments, got {}",
+                parameters.len(),
+                arguments.len()
+            ));
         }
 
         let mut inner_env = Env::new_with_outer(Rc::clone(&env));
-        
+
         for (ident, arg) in parameters.iter().zip(arguments.iter()) {
             if let Token::Identifier(name) = ident.clone() {
                 inner_env.set(name, arg.clone());
             } else {
                 return Object::Error(format!("Expected identifier, got {:?}", ident));
             }
-        };
+        }
 
         let current_env = Rc::clone(&self.env);
         self.env = Rc::new(RefCell::new(inner_env));
@@ -131,11 +154,19 @@ impl Evaluator {
                 None => Some(Object::Error(format!("Undefined variable: {:?}", name))),
             }
         } else {
-            Some(Object::Error(format!("Expected identifier, got {:?}", identifier)))
+            Some(Object::Error(format!(
+                "Expected identifier, got {:?}",
+                identifier
+            )))
         }
     }
 
-    fn eval_if(&mut self, condition: &Expression, consequence: &Program, alternative: &Option<Program>) -> Option<Object> {
+    fn eval_if(
+        &mut self,
+        condition: &Expression,
+        consequence: &Program,
+        alternative: &Option<Program>,
+    ) -> Option<Object> {
         let condition = match self.eval_expression(condition) {
             Some(condition) => condition,
             None => return None,
@@ -163,7 +194,6 @@ impl Evaluator {
         result
     }
 
-
     fn eval_literal(&mut self, literal: &Literal) -> Object {
         match literal {
             Literal::Integer(value) => Object::Integer(*value),
@@ -181,32 +211,67 @@ impl Evaluator {
                 if let Object::Integer(right_value) = right {
                     self.eval_integer_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from("Type Mismatch for infix: int infix int -> int"))
+                    Object::Error(String::from(format!(
+                        "Invalid operator {:?} for type int",
+                        infix
+                    )))
                 }
-            },
+            }
             Object::Float(left_value) => {
                 if let Object::Float(right_value) = right {
                     self.eval_float_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from("Type Mismatch for infix: float infix float -> float"))
+                    Object::Error(String::from(
+                        "Type Mismatch for infix: float infix float -> float",
+                    ))
                 }
-            },
+            }
             Object::Boolean(left_value) => {
                 if let Object::Boolean(right_value) = right {
                     self.eval_boolean_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from("Type Mismatch for infix: bool infix bool -> bool"))
+                    Object::Error(String::from(
+                        "Type Mismatch for infix: bool infix bool -> bool",
+                    ))
                 }
-            },
-            _ => Object::Error(String::from("Type Mismatch for infix: int infix int -> int | bool infix bool -> bool")),
+            }
+            Object::String(left_value) => {
+                if let Object::String(right_value) = right {
+                    self.eval_string_infix(infix, left_value, right_value)
+                } else {
+                    Object::Error(String::from(
+                        "Type Mismatch for infix: string infix string -> string",
+                    ))
+                }
+            }
+            _ => Object::Error(String::from(
+                "Type Mismatch for infix: int infix int -> int | bool infix bool -> bool",
+            )),
+        }
+    }
+
+    fn eval_string_infix(&mut self, infix: &Infix, left: String, right: String) -> Object {
+        match infix {
+            Infix::Concat => {
+                let mut concat = left.clone();
+                concat.push_str(right.as_str());
+                Object::String(concat)
+            }
+            _ => Object::Error(String::from(format!(
+                "Invalid infix operator {:?} for given type: string",
+                infix
+            ))),
         }
     }
 
     fn eval_boolean_infix(&mut self, infix: &Infix, left: bool, right: bool) -> Object {
         match infix {
-            Infix::Equal=> Object::Boolean(left == right),
+            Infix::Equal => Object::Boolean(left == right),
             Infix::DoesNotEqual => Object::Boolean(left != right),
-            _ => Object::Error(String::from("Type Mismatch for infix: bool infix bool -> bool")),
+            _ => Object::Error(String::from(format!(
+                "Invalid infix operator {:?} for given type: bool",
+                infix
+            ))),
         }
     }
 
@@ -214,16 +279,21 @@ impl Evaluator {
         match infix {
             Infix::Plus => Object::Float(left + right),
             Infix::Minus => Object::Float(left - right),
-            Infix::Product=> Object::Float(left * right),
+            Infix::Product => Object::Float(left * right),
             Infix::ForwardSlash => Object::Float(left / right),
             Infix::Modulo => Object::Float(left % right),
-            Infix::Equal=> Object::Boolean(left == right),
+            Infix::Equal => Object::Boolean(left == right),
             Infix::DoesNotEqual => Object::Boolean(left != right),
             Infix::GreaterThan => Object::Boolean(left > right),
             Infix::LessThan => Object::Boolean(left < right),
             Infix::GTOrEqual => Object::Boolean(left >= right),
-            Infix::LTOrEqual=> Object::Boolean(left <= right),
-            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => Object::Error(String::from("Type Mismatch for infix: int infix int -> int")),
+            Infix::LTOrEqual => Object::Boolean(left <= right),
+            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => {
+                Object::Error(String::from(format!(
+                    "Invalid infix operator {:?} for given type: float",
+                    infix
+                )))
+            }
         }
     }
 
@@ -231,16 +301,21 @@ impl Evaluator {
         match infix {
             Infix::Plus => Object::Integer(left + right),
             Infix::Minus => Object::Integer(left - right),
-            Infix::Product=> Object::Integer(left * right),
-            Infix::ForwardSlash => Object::Integer(left/ right),
+            Infix::Product => Object::Integer(left * right),
+            Infix::ForwardSlash => Object::Integer(left / right),
             Infix::Modulo => Object::Integer(left % right),
-            Infix::Equal=> Object::Boolean(left == right),
+            Infix::Equal => Object::Boolean(left == right),
             Infix::DoesNotEqual => Object::Boolean(left != right),
             Infix::GreaterThan => Object::Boolean(left > right),
             Infix::LessThan => Object::Boolean(left < right),
             Infix::GTOrEqual => Object::Boolean(left >= right),
-            Infix::LTOrEqual=> Object::Boolean(left <= right),
-            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => Object::Error(String::from("Type Mismatch for infix: int infix int -> int")),
+            Infix::LTOrEqual => Object::Boolean(left <= right),
+            Infix::Caret | Infix::Cons | Infix::Concat | Infix::Ampersand | Infix::Pipe => {
+                Object::Error(String::from(format!(
+                    "Invalid infix operator {:?} for given type: int",
+                    infix
+                )))
+            }
         }
     }
 

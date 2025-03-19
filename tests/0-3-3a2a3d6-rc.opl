@@ -1,0 +1,5 @@
+let x = 345;
+let y = 222;
+x + y;
+let sq = fn x -> x * x;
+sq (23);

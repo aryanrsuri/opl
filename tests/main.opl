@@ -1,0 +1,11 @@
+let x = 10;
+let y = 100;
+let produce_value = fn x,y,f -> {
+	if x > y {
+		f(x,y)
+	} else {
+		x - y
+	}
+};
+let div = fn x,y -> x / y;
+produce_value(x,y,div);

@@ -1,10 +1,10 @@
-use std::fmt;
-use std::rc::Rc;
-use std::cell::RefCell;
 use crate::ast::{Identifier, Statement};
 use crate::environment::Env;
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
 
-#[derive(PartialEq,Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Object {
     Unit,
     Integer(i64),
@@ -28,20 +28,19 @@ pub enum Object {
     Error(String),
 }
 
-
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Object::Integer(value) => write!(f, "{}", value),
             Object::Float(ref value) => write!(f, "{}", value),
             Object::Boolean(ref value) => write!(f, "{}", value),
-            Object::String(ref value) => write!(f, "{}", value),
+            Object::String(ref value) => write!(f, "\"{}\"", value),
             Object::Unit => write!(f, "()"),
             Object::OptionSome(ref value) => write!(f, "Some({})", value),
             Object::OptionNone => write!(f, "None"),
             Object::Function(ref parameters, _, _) => {
                 write!(f, "fn {:?} -> {{ ... }}", parameters)
-            },
+            }
             Object::List(ref value) => write!(f, "{:?}", value),
             Object::Return(ref value) => write!(f, "{}", value),
             Object::ResultOk(ref value) => write!(f, "{}", value),
