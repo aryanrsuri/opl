@@ -274,13 +274,61 @@ impl Parser {
     }
 
     fn parse_builtin_function(&mut self, function: Token) -> Option<Expression> {
-        self.next_token();
-        let args = self.parse_expression(Precedence::Lowest)?;
+        self.next_token(); // Move to the token after the function name
+        
+        // Parse the arguments (should start with left paren)
+        if !self.curr_token_is(Token::LeftParen) {
+            self.errors.push(ParseError::Log(format!("Expected '(' after builtin function, got {:?}", self.curr)));
+            return None;
+        }
+        
+        let args = self.parse_call_arguments()?;
+        
         Some(Expression::BuiltIn {
             function,
-            arguments: vec![args],
+            arguments: args,
         })
     }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
+        let mut args = Vec::new();
+        
+        // Handle empty argument list
+        self.next_token(); // Move past the left paren
+        if self.curr_token_is(Token::RightParen) {
+            return Some(args);
+        }
+        
+        // Parse first argument
+        if let Some(exp) = self.parse_expression(Precedence::Lowest) {
+            args.push(exp);
+        } else {
+            return None;
+        }
+        
+        // Parse remaining arguments
+        while self.peek_token_is(Token::Comma) {
+            self.next_token(); // consume comma
+            self.next_token(); // move to next arg
+            
+            if let Some(exp) = self.parse_expression(Precedence::Lowest) {
+                args.push(exp);
+            } else {
+                return None;
+            }
+        }
+        
+        // Check for closing parenthesis
+        if !self.peek_token_is(Token::RightParen) {
+            self.errors.push(ParseError::Log(format!("Expected ')' after arguments, got {:?}", self.peek)));
+            return None;
+        }
+        
+        self.next_token(); // consume right paren
+        
+        Some(args)
+    }
+
     fn parse_list_expression(&mut self) -> Option<Expression> {
         let mut elements = vec![];
         
@@ -289,10 +337,37 @@ impl Parser {
             return Some(Expression::Literal(Literal::List(elements)));
         }
         self.next_token();
-        match self.parse_expression(Precedence::Lowest) {
-            Some(expr) => elements.push(expr),
+        
+        // Parse the first element
+        let first_element = match self.parse_expression(Precedence::Lowest) {
+            Some(expr) => expr,
             None => return None,
+        };
+        
+        // Check if this is a range expression [elem1..elem2]
+        if self.peek_token_is(Token::Over) {
+            self.next_token(); // consume the '..' token
+            self.next_token(); // move to the second expression
+            
+            // Parse the end of the range
+            let end_element = match self.parse_expression(Precedence::Lowest) {
+                Some(expr) => expr,
+                None => return None,
+            };
+            
+            if !self.expect_peek(Token::RightBracket) {
+                return None;
+            }
+            
+            return Some(Expression::Range {
+                start: Box::new(first_element),
+                end: Box::new(end_element),
+            });
         }
+        
+        // If not a range, proceed with normal list parsing
+        elements.push(first_element);
+        
         while self.peek_token_is(Token::Comma) {
             self.next_token();
             self.next_token();
@@ -349,6 +424,15 @@ impl Parser {
     fn parse_function_literal(&mut self) -> Option<Expression> {
         let params = {
             let mut params = Vec::new();
+            
+            // Check if we have at least one parameter or empty parentheses
+            if self.peek == Token::Arrow {
+                self.errors.push(ParseError::Log(
+                    "Function definition requires parameters or empty parentheses '()' before ->".to_string()
+                ));
+                return None;
+            }
+            
             while self.peek != Token::Arrow {
                 self.next_token();
                 if let Token::Identifier(s) = &self.curr {
@@ -430,42 +514,12 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: Expression) -> Option<Expression> {
-        let mut arguments = vec![];
+        // Parse the opening parenthesis
+        let args = self.parse_call_arguments()?;
         
-        // Handle empty argument lists
-        if self.peek_token_is(Token::RightParen) {
-            self.next_token();
-            return Some(Expression::Call {
-                function: Box::new(function),
-                arguments,
-            });
-        }
-
-        // Parse first argument
-        self.next_token();
-        if let Some(arg) = self.parse_expression(Precedence::Lowest) {
-            arguments.push(arg);
-        } else {
-            return None;
-        }
-
-        while self.peek_token_is(Token::Comma) {
-            self.next_token(); 
-            self.next_token();
-            if let Some(arg) = self.parse_expression(Precedence::Lowest) {
-                arguments.push(arg);
-            } else {
-                return None;
-            }
-        }
-
-        if !self.expect_peek(Token::RightParen) {
-            return None;
-        }
-
         Some(Expression::Call {
             function: Box::new(function),
-            arguments,
+            arguments: args,
         })
     }
 

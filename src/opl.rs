@@ -22,10 +22,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Start an interactive REPL session. Optional --eval flag to evaluate the input.")]
+    #[command(about = "Start an interactive REPL session. Optional --parse flat to parse the input without evaluating it.")]
     Repl {
         #[arg(short, long)]
-        eval: bool,
+        parse: bool,
     },
     #[command(about = "Execute a .opl file. Optional --eval flag to evaluate the input.")]
     Run {
@@ -44,9 +44,9 @@ pub fn run() {
             let _ = Cli::parse_from(&["opl", "--help"]);
         },
         Some(command) => match command {
-            Commands::Repl { eval } => {
-                println!("Starting OPL REPL with eval: {}", eval);
-                repl::start(eval);
+            Commands::Repl { parse } => {
+                println!("Starting OPL REPL (parse only: {})", parse);
+                repl::start(parse);
             },
             Commands::Run { file } => {
                 let input = match fs::read_to_string(&file) {

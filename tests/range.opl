@@ -1,0 +1,14 @@
+let a = [1..5]; 
+
+let start = 10;
+let end = 20;
+let b = [start..end];
+
+let c = [1+1..5*2];
+
+let d = [5..1];
+
+let e = [3..3];
+
+let f = [-5..0];
+let g = [-10..-5];

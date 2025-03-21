@@ -65,6 +65,11 @@ pub enum Expression {
         function: Identifier,
         arguments: Vec<Expression>,
     },
+    // Range expression [start..end]
+    Range {
+        start: Box<Expression>,
+        end: Box<Expression>,
+    },
 }
 
 #[derive(PartialEq, Debug, Clone)]

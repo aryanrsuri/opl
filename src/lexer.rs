@@ -22,6 +22,7 @@ pub enum Token {
     Some,
     None,
     List,
+    Tuple,
     Option,
     Result,
     HashMap,
@@ -249,6 +250,7 @@ impl Lexer {
             "option" => Token::Option,
             "result" => Token::Result,
             "hashmap" => Token::HashMap,
+            "tuple" => Token::Tuple,
             // Uppercase type constructors
             //"List" => Token::List,
             // "Option" => Token::Option,
@@ -390,5 +392,22 @@ impl Lexer {
 
         self.read();
         token
+    }
+}
+
+use std::fmt;
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::Identifier(name) => write!(f, "{}", name),
+            Token::StringLiteral(s) => write!(f, "\"{}\"", s),
+            Token::IntegerLiteral(i) => write!(f, "{}", i),
+            Token::FloatLiteral(fl) => write!(f, "{}", fl),
+            Token::Comment(c) => write!(f, "--{}", c),
+            Token::Boolean(b) => write!(f, "{}", b),
+            // For other tokens, display their debug representation
+            _ => write!(f, "{:?}", self),
+        }
     }
 }

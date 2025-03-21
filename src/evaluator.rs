@@ -3,7 +3,7 @@ use crate::ast::*;
 use crate::environment::Env;
 use crate::lexer::Token;
 use crate::object::Object;
-use crate::builtin::println_builtin;
+use crate::builtin::{println_builtin, map_builtin, fold_builtin, filter_builtin};
 use std::cell::RefCell;
 use std::rc::Rc;
 pub struct Evaluator {
@@ -38,8 +38,13 @@ impl Evaluator {
             Statement::Let(identifier, expression) => self.eval_let(identifier, expression),
             Statement::Expression(expression) => self.eval_expression(expression),
             Statement::Return(expression) => self.eval_return(expression),
-            _ => unreachable!("[ERR] Only expression statement evaluation works."),
+            Statement::Type(identifier, declaration) => self.eval_type(identifier, declaration),
+            Statement::Comment(_) => None,
         }
+    }
+
+    fn eval_type(&mut self, identifier: &Identifier, declaration: &Type) -> Option<Object> {
+        Some(Object::Error(format!("Type evaluation not implemented for {:?}, given identifier: {:?}", declaration, identifier)))
     }
 
     fn eval_let(&mut self, identifier: &Identifier, expression: &Expression) -> Option<Object> {
@@ -78,6 +83,7 @@ impl Evaluator {
                 alternative,
             } => self.eval_if(condition, consequence, alternative),
             Expression::Literal(literal) => Some(self.eval_literal(literal)),
+            Expression::Range { start, end } => Some(self.eval_range(start, end)),
             Expression::OptionNone => Some(Object::OptionNone),
             Expression::Function { parameters, body } => Some(Object::Function(
                 parameters.clone(),
@@ -107,10 +113,39 @@ impl Evaluator {
                 
                 match function {
                     Token::Println => Some(println_builtin(args)),
+                    Token::Map => Some(map_builtin(args)),
+                    Token::Fold => Some(fold_builtin(args)),
+                    Token::Filter => Some(filter_builtin(args)),
                     _ => Some(Object::Error("Unknown builtin function".to_string())),
                 }
             }
             _ => unreachable!("[ERR] Only literal expression evaluation works."),
+        }
+    }
+
+    fn eval_range(&mut self, start: &Expression, end: &Expression) -> Object {
+        let start_val = self.eval_expression(start).unwrap_or(Object::Error("Failed to evaluate start".to_string()));
+        let end_val = self.eval_expression(end).unwrap_or(Object::Error("Failed to evaluate end".to_string()));
+        
+        // Check that both start and end are integers
+        match (start_val, end_val) {
+            (Object::Integer(start_int), Object::Integer(end_int)) => {
+                // Create a list of numbers from start to end (inclusive)
+                let mut list = Vec::new();
+                for i in start_int..=end_int {
+                    list.push(Object::Integer(i));
+                }
+                Object::List(list)
+            },
+            (non_int_start, _) if !matches!(non_int_start, Object::Integer(_)) => {
+                Object::Error(format!("Range start must be an integer, got {:?}", non_int_start))
+            },
+            (_, non_int_end) if !matches!(non_int_end, Object::Integer(_)) => {
+                Object::Error(format!("Range end must be an integer, got {:?}", non_int_end))
+            },
+            _ => {
+                Object::Error("Error creating range".to_string())
+            }
         }
     }
 
@@ -194,7 +229,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_block(&mut self, program: &Program) -> Option<Object> {
+    pub fn eval_block(&mut self, program: &Program) -> Option<Object> {
         let mut result: Option<Object> = None;
         for statement in program {
             match self.eval_statement(statement) {
@@ -439,6 +474,110 @@ impl Evaluator {
             Object::Boolean(true) => Object::Boolean(false),
             Object::Boolean(false) => Object::Boolean(true),
             _ => Object::Error(String::from("Type Mismatch for (!): bool -> bool")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_eval_let() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::Integer(1))), Statement::Expression(Expression::Identifier(Identifier::Identifier("x".to_string())))];
+        let result = evaluator.eval(&program);
+        assert_eq!(result, Some(Object::Integer(1)));
+    }
+
+    #[test]     
+    fn test_eval_return() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        let program = vec![Statement::Return(Expression::Literal(Literal::Integer(1)))];
+        let result = evaluator.eval(&program);
+        assert_eq!(result, Some(Object::Return(Box::new(Object::Integer(1)))));
+    }
+
+
+
+    #[test] 
+    fn test_eval_if_else_else() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        let program = vec![Statement::Expression(Expression::If { condition: Box::new(Expression::Literal(Literal::Boolean(true))), consequence: vec![Statement::Return(Expression::Literal(Literal::Integer(1)))], alternative: Some(vec![Statement::Return(Expression::Literal(Literal::Integer(2)))]) })];
+        let result = evaluator.eval(&program);
+        assert_eq!(result, Some(Object::Return(Box::new(Object::Integer(1)))));
+    }
+
+    #[test]
+    fn test_eval_list() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::List(vec![Expression::Literal(Literal::Integer(1)), Expression::Literal(Literal::Integer(2))]))), Statement::Expression(Expression::Identifier(Identifier::Identifier("x".to_string())))];
+        let result = evaluator.eval(&program);
+        assert_eq!(result, Some(Object::List(vec![Object::Integer(1), Object::Integer(2)])));
+    }
+
+    #[test]
+    fn test_eval_list_cons() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::List(vec![Expression::Literal(Literal::Integer(1)), Expression::Literal(Literal::Integer(2))]))), Statement::Expression(Expression::Infix(Infix::Cons, Box::new(Expression::Literal(Literal::Integer(3))), Box::new(Expression::Identifier(Identifier::Identifier("x".to_string())))))];
+        let result = evaluator.eval(&program);
+        assert_eq!(result, Some(Object::List(vec![Object::Integer(3), Object::Integer(1), Object::Integer(2)])));
+    }
+
+    #[test]
+    fn test_eval_range() {
+        let env = Rc::new(RefCell::new(Env::new()));
+        let mut evaluator = Evaluator::new(env);
+        
+        // Test basic range
+        let start = Expression::Literal(Literal::Integer(1));
+        let end = Expression::Literal(Literal::Integer(5));
+        let range_expr = Expression::Range {
+            start: Box::new(start),
+            end: Box::new(end),
+        };
+        
+        let result = evaluator.eval_expression(&range_expr).unwrap();
+        match result {
+            Object::List(elements) => {
+                assert_eq!(elements.len(), 5); // [1, 2, 3, 4, 5]
+                for (i, obj) in elements.iter().enumerate() {
+                    assert_eq!(*obj, Object::Integer((i + 1) as i64));
+                }
+            }
+            _ => panic!("Expected list, got {:?}", result),
+        }
+        
+        // Test with non-integer start value
+        let start = Expression::Literal(Literal::Float(1.5));
+        let end = Expression::Literal(Literal::Integer(5));
+        let range_expr = Expression::Range {
+            start: Box::new(start),
+            end: Box::new(end),
+        };
+        
+        let result = evaluator.eval_expression(&range_expr).unwrap();
+        match result {
+            Object::Error(msg) => {
+                assert!(msg.contains("Range start must be an integer"));
+            }
+            _ => panic!("Expected error for non-integer start, got {:?}", result),
+        }
+        
+        // Test with non-integer end value
+        let start = Expression::Literal(Literal::Integer(1));
+        let end = Expression::Literal(Literal::String("5".to_string()));
+        let range_expr = Expression::Range {
+            start: Box::new(start),
+            end: Box::new(end),
+        };
+        
+        let result = evaluator.eval_expression(&range_expr).unwrap();
+        match result {
+            Object::Error(msg) => {
+                assert!(msg.contains("Range end must be an integer"));
+            }
+            _ => panic!("Expected error for non-integer end, got {:?}", result),
         }
     }
 }

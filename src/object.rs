@@ -42,7 +42,7 @@ impl fmt::Display for Object {
             Object::OptionSome(ref value) => write!(f, "Some({})", value),
             Object::OptionNone => write!(f, "None"),
             Object::Function(ref parameters, _, _) => {
-                write!(f, "fn {:?} -> {{ ... }}", parameters)
+                write!(f, "fn {} -> {{ ... }}", parameters.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", "))
             }
             Object::List(ref value) => write!(f, "[{}]", value.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")),
             Object::Return(ref value) => write!(f, "{}", value),

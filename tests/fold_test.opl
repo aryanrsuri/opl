@@ -1,0 +1,23 @@
+-- Basic fold test with addition
+let add = fn x,y -> x+y;
+let sum = fold(add, 0, [1,2,3,4,5]);
+println(sum); -- Should output 15
+
+-- Test fold with string concatenation
+let concat = fn acc,x -> acc ++ x;
+let result = fold(concat, "", ["Hello", " ", "World", "!"]);
+println(result); -- Should output "Hello World!"
+
+-- Test fold with multiplication
+let multiply = fn acc,x -> acc * x;
+let product = fold(multiply, 1, [1,2,3,4,5]);
+println(product); -- Should output 120
+
+-- Test fold with empty list
+let empty_result = fold(add, 0, []);
+println(empty_result); -- Should output 0
+
+-- Test fold with list construction
+let prepend = fn acc,x -> x :: acc;
+let reversed = fold(prepend, [], [1,2,3,4,5]);
+println(reversed); -- Should output [5,4,3,2,1] 

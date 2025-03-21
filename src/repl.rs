@@ -5,7 +5,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::{cell::RefCell, io::{self, Write}, rc::Rc};
 
-pub fn start(evaluate: bool) {
+pub fn start(parse: bool) {
 
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
     loop {
@@ -39,13 +39,14 @@ pub fn start(evaluate: bool) {
                 println!("Errors {:#?}", error);
             }
         } else {
-            if evaluate {
+            // Swap this if-else
+            if parse {
+                println!("{:?}", program);
+            } else {
                 match evaluator.eval(&program) {
                     Some(object) => println!("# {}", object),
                     None => (),
                 };
-            } else {
-                println!("{:?}", program);
             }
         }
     }
