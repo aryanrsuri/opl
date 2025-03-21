@@ -231,7 +231,7 @@ impl Parser {
             Token::None => Some(Expression::OptionNone),
             Token::Ok => self.parse_ok_expression(),
             Token::Err => self.parse_err_expression(),
-            Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All => self.parse_builtin_function(self.curr.clone()),
+            Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All | Token::Println => self.parse_builtin_function(self.curr.clone()),
             Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType |  Token::List | Token::Option | Token::Result | Token::HashMap => {
                 Some(Expression::Identifier(self.curr.clone()))
             },

@@ -45,7 +45,7 @@ pub fn run() {
         },
         Some(command) => match command {
             Commands::Repl { eval } => {
-                println!("Starting OPL REPL...");
+                println!("Starting OPL REPL with eval: {}", eval);
                 repl::start(eval);
             },
             Commands::Run { file } => {

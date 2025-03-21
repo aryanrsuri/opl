@@ -91,6 +91,7 @@ pub enum Token {
     Fold, // fold : (b -> a -> b) -> b -> [a] -> b
     Any, // any : (a -> bool) -> [a] -> bool
     All, // all : (a -> bool) -> [a] -> bool
+    Println, // println : [a] -> ()
 
 
 }
@@ -264,6 +265,7 @@ impl Lexer {
             "fold" => Token::Fold,
             "any" => Token::Any,
             "all" => Token::All,
+            "println" => Token::Println,
             // TODO: Add the uppercase type constructors only for type module files
             _ => Token::Identifier(literal),
         };

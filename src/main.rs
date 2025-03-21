@@ -6,6 +6,7 @@ pub mod object;
 pub mod evaluator;
 pub mod environment;
 pub mod opl;
+pub mod builtin;
 
 
 

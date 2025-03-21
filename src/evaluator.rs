@@ -3,6 +3,7 @@ use crate::ast::*;
 use crate::environment::Env;
 use crate::lexer::Token;
 use crate::object::Object;
+use crate::builtin::println_builtin;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub struct Evaluator {
@@ -97,6 +98,16 @@ impl Evaluator {
                     Some(self.eval_infix(infix, left.unwrap(), right.unwrap()))
                 } else {
                     None
+                }
+            }
+            Expression::BuiltIn { function, arguments } => {
+                let args = arguments.iter()
+                    .map(|arg| self.eval_expression(arg).unwrap_or(Object::Error("Failed to evaluate argument".to_string())))
+                    .collect();
+                
+                match function {
+                    Token::Println => Some(println_builtin(args)),
+                    _ => Some(Object::Error("Unknown builtin function".to_string())),
                 }
             }
             _ => unreachable!("[ERR] Only literal expression evaluation works."),

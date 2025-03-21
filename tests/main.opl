@@ -8,4 +8,5 @@ let produce_value = fn x,y,f -> {
 	}
 };
 let div = fn x,y -> x / y;
-produce_value(x,y,div);
+let r = produce_value(x,y,div);
+r

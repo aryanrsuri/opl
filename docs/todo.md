@@ -1,6 +1,23 @@
 ## Todo
+- [x] String Concatenation `++`
 - [ ] Builtin/Std library
+    - [ ] println
+    - [ ] Ord -> map, fold, filter, flatten
+- [ ] List Evaluation
+    - [ ] Declaration
+    - [ ] Indexes of Lists
+- [ ] List Concatenation `::`
+- [ ] Match Statement
+    - [ ] Pattern matches
+    - [ ] Usage as function
 - [ ] Type Alias
-- [ ] List evaluation
-- [ ] Indexes of Lists
-- [ ] String Concatenation
+    - [ ] Decleration
+    - [ ] Usage in environment
+- [ ] Tagged Unions
+    - [ ] Type evaluation
+    - [ ] Declaration and Usage
+- [ ] Records
+    - [ ] Type evaluation
+    - [ ] Declaration and Usage
+    - [ ] Dot `.` access
+

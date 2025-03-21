@@ -26,6 +26,9 @@ pub enum Object {
 
     // Type Errors
     Error(String),
+
+    // Builtin
+    Builtin(fn(Vec<Object>) -> Object),
 }
 
 impl fmt::Display for Object {
@@ -46,6 +49,7 @@ impl fmt::Display for Object {
             Object::ResultOk(ref value) => write!(f, "{}", value),
             Object::ResultErr(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
+            Object::Builtin(ref value) => write!(f, "{:?}", value),
         }
     }
 }
