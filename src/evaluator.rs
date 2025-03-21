@@ -58,9 +58,7 @@ impl Evaluator {
     fn eval_let(&mut self, identifier: &Identifier, expression: &Expression) -> Option<Object> {
         if let Some(value) = self.eval_expression(expression) {
             if let Token::Identifier(name) = identifier {
-                println!("name: {}", name);
                 if self.env.borrow().exists_in_current_scope(&name) {
-                    println!("name exists in current scope");
                     return Some(Object::Error(format!(
                         "Cannot redefine variable '{}' in the same scope. Variable shadowing is not allowed.",
                         name
