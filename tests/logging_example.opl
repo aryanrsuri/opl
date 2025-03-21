@@ -1,0 +1,33 @@
+-- Implementing a request log accumulator in OPL
+
+-- Initialize an empty log list
+let requestLog = [];
+
+-- Function to add a log entry and return the updated log
+let addLog = fn log, entry -> entry :: log;
+
+-- Simulate HTTP request handlers
+let handleGetRequest = fn path, log -> {
+  let entry = "GET request to " ++ path;
+  let newLog = addLog(log, entry);
+  return newLog;
+};
+
+let handlePostRequest = fn path, data, log -> {
+  let entry = "POST request to " ++ path ++ " with data: " ++ data;
+  let newLog = addLog(log, entry);
+  return newLog;
+};
+
+-- Simulate a sequence of requests
+let log1 = handleGetRequest("/users", requestLog);
+let log2 = handlePostRequest("/users/new", "name=John", log1);
+let log3 = handleGetRequest("/admin", log2);
+
+-- Print the final log (in reverse chronological order since we prepend)
+let addTimestamps = fn log -> {
+  let addTime = fn entry -> "[" ++ "timestamp" ++ "] " ++ entry;
+  return map(addTime, log);
+};
+let timestampedLog = addTimestamps(log3);
+timestampedLog;

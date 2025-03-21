@@ -1,0 +1,13 @@
+-- Test variable shadowing prevention
+
+-- This should work (initial definition)
+let x = 10;
+println("Initial value of x");
+
+-- This should cause an error (redefining in same scope)
+let x = 20;
+println("This line shouldn't be reached if shadowing is prevented");
+
+-- This should still work (different variable)
+let y = 30;
+println("Value of y: "); 

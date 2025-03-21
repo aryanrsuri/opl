@@ -39,6 +39,10 @@ impl Env {
         }
     }
 
+    pub fn exists_in_current_scope(&self, name: &str) -> bool {
+        self.store.contains_key(name)
+    }
+
     pub fn set(&mut self, key: String, value: Object) {
         self.store.insert(key, value);
     }

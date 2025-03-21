@@ -27,7 +27,15 @@ impl Evaluator {
         let mut result: Option<Object> = None;
         for statement in program {
             match self.eval_statement(statement) {
-                object => result = object,
+                Some(obj) => {
+                    if let Object::Error(_) = obj {
+                        return Some(obj);
+                    }
+                    result = Some(obj);
+                },
+                None => {
+                    result = None;
+                }
             }
         }
         result
@@ -50,6 +58,14 @@ impl Evaluator {
     fn eval_let(&mut self, identifier: &Identifier, expression: &Expression) -> Option<Object> {
         if let Some(value) = self.eval_expression(expression) {
             if let Token::Identifier(name) = identifier {
+                println!("name: {}", name);
+                if self.env.borrow().exists_in_current_scope(&name) {
+                    println!("name exists in current scope");
+                    return Some(Object::Error(format!(
+                        "Cannot redefine variable '{}' in the same scope. Variable shadowing is not allowed.",
+                        name
+                    )));
+                }
                 self.env.borrow_mut().set(name.clone(), value);
                 None
             } else {
@@ -95,7 +111,7 @@ impl Evaluator {
                 arguments,
             } => Some(self.eval_call(function, arguments)),
             Expression::Prefix(prefix, expression) => self
-                .eval_expression(&expression) // Evalute the right hand side
+                .eval_expression(&expression)
                 .map(|right| self.eval_prefix(prefix, right)),
             Expression::Infix(infix, left_expression, right_expression) => {
                 let left = self.eval_expression(left_expression);
@@ -127,10 +143,8 @@ impl Evaluator {
         let start_val = self.eval_expression(start).unwrap_or(Object::Error("Failed to evaluate start".to_string()));
         let end_val = self.eval_expression(end).unwrap_or(Object::Error("Failed to evaluate end".to_string()));
         
-        // Check that both start and end are integers
         match (start_val, end_val) {
             (Object::Integer(start_int), Object::Integer(end_int)) => {
-                // Create a list of numbers from start to end (inclusive)
                 let mut list = Vec::new();
                 for i in start_int..=end_int {
                     list.push(Object::Integer(i));
@@ -223,8 +237,6 @@ impl Evaluator {
         } else if let Some(alt) = alternative {
             self.eval_block(alt)
         } else {
-            // If the condition is not truthy and there is no alternative, return None
-            // Should this be an error?
             None
         }
     }
@@ -234,7 +246,15 @@ impl Evaluator {
         for statement in program {
             match self.eval_statement(statement) {
                 Some(Object::Return(value)) => return Some(Object::Return(value)),
-                object => result = object,
+                Some(obj) => {
+                    if let Object::Error(_) = obj {
+                        return Some(obj);
+                    }
+                    result = Some(obj);
+                },
+                None => {
+                    result = None;
+                }
             }
         }
         result
@@ -253,7 +273,6 @@ impl Evaluator {
     }
 
     fn eval_list(&mut self, elements: &Vec<Expression>) -> Object {
-        // Can I use assert_list_type here?
         let mut evaluated = Vec::new();
         let mut first_type: Option<Object> = None;
         
@@ -440,7 +459,6 @@ impl Evaluator {
         }
     }
 
-    // MANIFEST: Prefix Eval
     fn eval_prefix(&mut self, prefix: &Prefix, object: Object) -> Object {
         match prefix {
             Prefix::Plus => self.eval_plus_prefix(object),
@@ -528,8 +546,6 @@ mod tests {
     fn test_eval_range() {
         let env = Rc::new(RefCell::new(Env::new()));
         let mut evaluator = Evaluator::new(env);
-        
-        // Test basic range
         let start = Expression::Literal(Literal::Integer(1));
         let end = Expression::Literal(Literal::Integer(5));
         let range_expr = Expression::Range {
@@ -540,7 +556,7 @@ mod tests {
         let result = evaluator.eval_expression(&range_expr).unwrap();
         match result {
             Object::List(elements) => {
-                assert_eq!(elements.len(), 5); // [1, 2, 3, 4, 5]
+                assert_eq!(elements.len(), 5);
                 for (i, obj) in elements.iter().enumerate() {
                     assert_eq!(*obj, Object::Integer((i + 1) as i64));
                 }
@@ -548,7 +564,6 @@ mod tests {
             _ => panic!("Expected list, got {:?}", result),
         }
         
-        // Test with non-integer start value
         let start = Expression::Literal(Literal::Float(1.5));
         let end = Expression::Literal(Literal::Integer(5));
         let range_expr = Expression::Range {
@@ -564,7 +579,6 @@ mod tests {
             _ => panic!("Expected error for non-integer start, got {:?}", result),
         }
         
-        // Test with non-integer end value
         let start = Expression::Literal(Literal::Integer(1));
         let end = Expression::Literal(Literal::String("5".to_string()));
         let range_expr = Expression::Range {
