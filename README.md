@@ -1,6 +1,6 @@
 ## Implementation of a pure functional language interpreter in rust
 
-Opl (pronounced "opal") is a purely functional languague focused on analytical types and pure functions. This focus is both the study of Function PL and building interpreters. Rust was chosen for is excellent compile times and ergonomics
+Opl (pronounced "opal") is a purely functional languague focused on analytical types and pure functions. This focus is both the study of Function PL and building interpreters. Rust was chosen excellent compile times and ergonomics
 
 ### Codebase
 
@@ -21,8 +21,6 @@ Opl (pronounced "opal") is a purely functional languague focused on analytical t
 - (some_grammar).opl: Opl file containing examples for one specific file
 
 ### The Opl Toolchain
-
-The Opl toolchain subsists of the following tools.
 
 ```bash
 Opl is a general purpose functional programming language.
