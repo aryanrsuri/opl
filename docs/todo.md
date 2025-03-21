@@ -1,12 +1,12 @@
 ## Todo
 - [x] String Concatenation `++`
 - [ ] Builtin/Std library
-    - [ ] println
+    - [x] println
     - [ ] Ord -> map, fold, filter, flatten
 - [ ] List Evaluation
-    - [ ] Declaration
+    - [x] Declaration
     - [ ] Indexes of Lists
-- [ ] List Concatenation `::`
+- [x] List Concatenation `::`
 - [ ] Match Statement
     - [ ] Pattern matches
     - [ ] Usage as function
@@ -20,4 +20,7 @@
     - [ ] Type evaluation
     - [ ] Declaration and Usage
     - [ ] Dot `.` access
+- [ ] Better error messages
+- [ ] Result (Ok | Err) Evaluation
+- [ ] Option (Some | None) Evaluation 
 

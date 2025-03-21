@@ -212,52 +212,127 @@ impl Evaluator {
             Literal::String(value) => Object::String(value.clone()),
             Literal::Boolean(value) => Object::Boolean(*value),
             Literal::Unit => Object::Unit,
-            _ => unreachable!("[ERR] Only primitive literal evaluation works."),
+            Literal::List(elements) => self.eval_list(elements),
+            _ => Object::Error("Unsupported literal type".to_string()),
+        }
+    }
+
+    fn eval_list(&mut self, elements: &Vec<Expression>) -> Object {
+        // Can I use assert_list_type here?
+        let mut evaluated = Vec::new();
+        let mut first_type: Option<Object> = None;
+        
+        for element in elements {
+            match self.eval_expression(element) {
+                Some(value) => {
+                    if let Some(ref first) = first_type {
+                        if !self.assert_list_type(&vec![value.clone()], first) {
+                            return Object::Error(format!(
+                                "List elements must be of the same type. Expected {:?}, got {:?}",
+                                first, value
+                            ));
+                        }
+                    } else {
+                        first_type = Some(value.clone());
+                    }
+                    evaluated.push(value);
+                }
+                None => return Object::Error("Failed to evaluate list element".to_string()),
+            }
+        }
+        
+        Object::List(evaluated)
+    }
+
+    fn same_type(&self, a: &Object, b: &Object) -> bool {
+        std::mem::discriminant(a) == std::mem::discriminant(b)
+    }
+
+
+    fn assert_list_type(&self, elements: &Vec<Object>, expected_type: &Object) -> bool {
+        elements.iter().all(|v| self.same_type(v, expected_type))
+    }
+
+    fn eval_cons_infix(&mut self, left_value: Object, right_value: Object) -> Object {
+        if let Object::List(elements) = right_value {
+            if self.assert_list_type(&elements, &left_value) {
+                let mut new_list = elements.clone();
+                new_list.insert(0, left_value);
+                Object::List(new_list)
+            } else {
+                Object::Error(String::from(format!("Type mismatch, expected type {:?}",std::mem::discriminant(&left_value))))
+            }
+        } else {
+            Object::Error(String::from(format!("Invalid cons operation for type {:?}",  std::mem::discriminant(&right_value))))
         }
     }
 
     fn eval_infix(&mut self, infix: &Infix, left: Object, right: Object) -> Object {
         match left {
             Object::Integer(left_value) => {
-                if let Object::Integer(right_value) = right {
+                if let Object::List(right_value) = right {
+                    match infix {
+                        Infix::Cons => self.eval_cons_infix( Object::Integer(left_value), Object::List(right_value)),
+                        _ => Object::Error(String::from(format!("Invalid infix operator {:?} for given type: int", infix)))
+                    }
+                } else if let Object::Integer(right_value) = right {
                     self.eval_integer_infix(infix, left_value, right_value)
                 } else {
                     Object::Error(String::from(format!(
-                        "Invalid operator {:?} for type int",
-                        infix
+                        "Type Mismatch for infix: int infix {:?} -> int | {:?}",
+                        infix, std::mem::discriminant(&right)
                     )))
                 }
             }
             Object::Float(left_value) => {
-                if let Object::Float(right_value) = right {
+                if let Object::List(right_value) = right {
+                    match infix {
+                        Infix::Cons => self.eval_cons_infix(Object::Float(left_value), Object::List(right_value)),
+                        _ => Object::Error(String::from(format!("Invalid infix operator {:?} for given type: float", infix)))
+                    }
+                } else  if let Object::Float(right_value) = right {
                     self.eval_float_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from(
-                        "Type Mismatch for infix: float infix float -> float",
-                    ))
+                    Object::Error(String::from(format!(
+                        "Type Mismatch for infix: float infix {:?} -> float | {:?}",
+                        infix, std::mem::discriminant(&right)
+                    )))
                 }
             }
             Object::Boolean(left_value) => {
-                if let Object::Boolean(right_value) = right {
+                if let Object::List(right_value) = right {
+                    match infix {
+                        Infix::Cons => self.eval_cons_infix( Object::Boolean(left_value), Object::List(right_value)),
+                        _ => Object::Error(String::from(format!("Invalid infix operator {:?} for given type: bool", infix)))
+                    }
+                } else if let Object::Boolean(right_value) = right {
                     self.eval_boolean_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from(
-                        "Type Mismatch for infix: bool infix bool -> bool",
-                    ))
+                    Object::Error(String::from(format!(
+                        "Type Mismatch for infix: bool infix {:?} -> bool | {:?}",
+                        infix, std::mem::discriminant(&right)
+                    )))
                 }
             }
             Object::String(left_value) => {
-                if let Object::String(right_value) = right {
+                if let Object::List(right_value) = right {
+                    match infix {
+                        Infix::Cons => self.eval_cons_infix(Object::String(left_value), Object::List(right_value)),
+                        _ => Object::Error(String::from(format!("Invalid infix operator {:?} for given type: string", infix)))
+                    }
+                } else if let Object::String(right_value) = right {
                     self.eval_string_infix(infix, left_value, right_value)
                 } else {
-                    Object::Error(String::from(
-                        "Type Mismatch for infix: string infix string -> string",
-                    ))
+                    Object::Error(String::from(format!(
+                        "Type Mismatch for infix: string infix {:?} -> string | {:?}",
+                        infix, std::mem::discriminant(&right)
+                    )))
                 }
             }
-            _ => Object::Error(String::from(
-                "Type Mismatch for infix: int infix int -> int | bool infix bool -> bool",
-            )),
+            _ => Object::Error(String::from(format!(
+                "Type Mismatch for infix: {:?} infix {:?} -> {:?}",
+                std::mem::discriminant(&left), infix, std::mem::discriminant(&right)
+            ))),
         }
     }
 

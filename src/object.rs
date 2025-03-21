@@ -44,7 +44,7 @@ impl fmt::Display for Object {
             Object::Function(ref parameters, _, _) => {
                 write!(f, "fn {:?} -> {{ ... }}", parameters)
             }
-            Object::List(ref value) => write!(f, "{:?}", value),
+            Object::List(ref value) => write!(f, "[{}]", value.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")),
             Object::Return(ref value) => write!(f, "{}", value),
             Object::ResultOk(ref value) => write!(f, "{}", value),
             Object::ResultErr(ref value) => write!(f, "{}", value),
