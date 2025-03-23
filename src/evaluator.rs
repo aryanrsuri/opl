@@ -287,16 +287,16 @@ impl Evaluator {
                             fields: type_fields,
                         }
                     },
-                    Type::Union(_) => {
+                    Type::Union(variants) => {
                         Object::TypeDefinition {
                             name: name.clone(),
                             fields: vec![], // Union types don't have fields
                         }
                     },
-                    Type::Alias(_) => {
+                    Type::Alias(alias) => {
                         Object::TypeDefinition {
                             name: name.clone(),
-                            fields: vec![], // Aliases don't have fields
+                            fields: vec![(String::from("type"), format!("{:?}", alias))],
                         }
                     },
                 };
@@ -356,6 +356,15 @@ impl Evaluator {
             (Object::Boolean(_), TypeConstructor::BuiltIn(Constructor::Bool)) => true,
             (Object::List(_), TypeConstructor::BuiltIn(Constructor::List)) => true,
             (Object::Unit, TypeConstructor::BuiltIn(Constructor::Unit)) => true,
+            // Handle Option types
+            (Object::OptionSome(inner), TypeConstructor::BuiltIn(Constructor::Option)) => {
+                if let Some(param_type) = type_alias.parameters.first() {
+                    self.check_type_match(inner, param_type)
+                } else {
+                    false
+                }
+            },
+            (Object::OptionNone, TypeConstructor::BuiltIn(Constructor::Option)) => true,
             // Add more type checks as needed
             _ => false,
         }

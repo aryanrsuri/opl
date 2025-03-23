@@ -1,11 +1,13 @@
 ## Todo
+- [ ] (epic) Add static and inferred types to objects 
 - [x] String Concatenation `++`
 - [ ] Builtin/Std library
     - [x] println
     - [x] map
     - [x] fold,
     - [x] filter
-    - [ ] flatten
+    - [x] flatten
+    - [ ] flatmap (this could deprecate flatten through use of an identity fn x->x;)
 - [ ] List Evaluation
     - [x] Declaration
     - [x] List building using _over_ operator `..` 
@@ -27,9 +29,10 @@
 - [ ] Better error messages
 - [ ] Result (Ok | Err) Evaluation
 - [ ] Option (Some | None) Evaluation 
-- [ ] Builtin namespaces
-    - [ ] `std` namespace w builtin collections
-    - [ ] `type` namespace i.e `list.map(..)`
+- [x] Builtin namespaces
+    - [x] `std` namespace w builtin collections
+    - [x] `type` namespace i.e `list.map(..)`
+    - [ ] namesapce for primitive type conversions
 - [ ] bug (triage): you can declare a record with a type mismatch, type mismatch only detected on evalution or println i.e `let t ({name:string}) = {name = 1};` works, but `t` returns `# Type mismatch for field 'tag': expected Alias { name: BuiltIn(List), parameters: [Alias { name: BuiltIn(String), parameters: [] }] }, got Integer(1)`
 
 Commit Comments:

@@ -4,7 +4,7 @@ use std::fs;
 use std::rc::Rc;
 use crate::{lexer, parser, evaluator, environment, repl};
 
-const VERSION: &str = "0.4.2.ec9839e-rc";
+const VERSION: &str = "0.5.2.ed057a0-rc";
 const ABOUT: &str = "opl is a general purpose functional language.";
 const ZEN: &str = "\n* Strive to be pure.\n* Simplicity over complexity.\n* Elegance over verbosity.\n";
 
