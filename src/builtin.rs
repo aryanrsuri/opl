@@ -193,3 +193,54 @@ pub fn flatten_builtin(args: Vec<Object>) -> Object {
         _ => Object::Error("flatten expects a list of lists".to_string()),
     }
 }
+
+pub fn flatmap_builtin(args: Vec<Object>) -> Object {
+    if args.len() != 2 {
+        return Object::Error("flatmap expects exactly two arguments: function and list".to_string());
+    }
+
+    let function = &args[0];
+    let list = &args[1];
+
+    match (function, list) {
+        (Object::Function(params, body, env), Object::List(elements)) => {
+            if params.len() != 1 {
+                return Object::Error("flatmap function must take exactly one argument".to_string());
+            }
+
+            let mut flattened = Vec::new();
+
+            for element in elements {
+                let mut inner_env = Env::new_with_outer(Rc::clone(env));
+                if let Token::Identifier(ref name) = params[0] {
+                    inner_env.set(name.clone(), element.clone());
+                }
+
+                let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
+                match evaluator.eval_block(body) {
+                    Some(Object::Return(value)) => {
+                        match *value {
+                            Object::List(inner_list) => {
+                                flattened.extend(inner_list.iter().cloned());
+                            }
+                            other => flattened.push(other),
+                        }
+                    }
+                    Some(value) => {
+                        match value {
+                            Object::List(inner_list) => {
+                                flattened.extend(inner_list.iter().cloned());
+                            }
+                            other => flattened.push(other),
+                        }
+                    }
+                    None => return Object::Error("Function returned no value".to_string()),
+                }
+            }
+            Object::List(flattened)
+        }
+        (_, Object::List(_)) => Object::Error("First argument must be a function".to_string()),
+        (Object::Function(_, _, _), _) => Object::Error("Second argument must be a list".to_string()),
+        _ => Object::Error("Invalid arguments for flatmap".to_string()),
+    }
+}

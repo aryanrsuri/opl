@@ -91,6 +91,7 @@ pub enum Token {
     Filter, // filter : (a -> bool) -> [a] -> [a]
     Fold, // fold : (b -> a -> b) -> b -> [a] -> b
     Flatten, // flatten : [[a]] -> [a]
+    FlatMap, // flatmap : (a -> [b]) -> [a] -> [b]
     Println, // println : [a] -> ()
 
 
@@ -256,6 +257,7 @@ impl Lexer {
             "filter" => Token::Filter,
             "fold" => Token::Fold,
             "flatten" => Token::Flatten,
+            "flatmap" => Token::FlatMap,
             "println" => Token::Println,
             _ => Token::Identifier(literal),
         };

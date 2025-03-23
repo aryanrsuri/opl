@@ -3,7 +3,7 @@ use crate::ast::*;
 use crate::environment::Env;
 use crate::lexer::Token;
 use crate::object::Object;
-use crate::builtin::{println_builtin, map_builtin, fold_builtin, filter_builtin, flatten_builtin};
+use crate::builtin::{println_builtin, map_builtin, fold_builtin, filter_builtin, flatten_builtin, flatmap_builtin};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -747,6 +747,7 @@ impl Evaluator {
             (Token::List, Token::Filter) => Some(filter_builtin(args)),
             (Token::List, Token::Fold) => Some(fold_builtin(args)),
             (Token::List, Token::Flatten) => Some(flatten_builtin(args)),
+            (Token::List, Token::FlatMap) => Some(flatmap_builtin(args)),
             _ => Some(Object::Error(format!(
                 "Unknown namespace/function combination: {:?}.{:?}",
                 namespace, function
