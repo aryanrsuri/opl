@@ -145,7 +145,7 @@ impl Parser {
     }
 
     fn parse_identifier(&self) -> Option<Identifier> {
-        match self.curr {
+        match &self.curr {
             Token::Identifier(_) => Some(self.curr.clone()),
             _ => None,
         }
@@ -193,232 +193,146 @@ impl Parser {
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
         let mut left = match &self.curr {
-            Token::Identifier(_) => match self.parse_identifier() {
-                Some(ident) => Some(Expression::Identifier(ident)),
-                None => None,
+            Token::Identifier(_) => self.parse_identifier().map(Expression::Identifier)?,
+            Token::IntegerLiteral(_) | Token::FloatLiteral(_) | Token::StringLiteral(_) | Token::Boolean(_) => self.parse_literal()?,
+            Token::LeftParen => self.parse_grouped_expression()?,
+            Token::If => self.parse_if_expression()?,
+            Token::Fn => self.parse_function_literal()?,
+            Token::LeftBracket => self.parse_list_expression()?,
+            Token::LeftBrace => self.parse_record_expression()?,
+            Token::Std | Token::List => {
+                let namespace = self.curr.clone();
+                if !self.expect_peek(Token::Period) {
+                    return None;
+                }
+                
+                self.next_token(); // consume the dot
+                let function = self.curr.clone();
+                
+                if !self.expect_peek(Token::LeftParen) {
+                    return None;
+                }
+                
+                match self.parse_call_arguments() {
+                    Some(arguments) => Expression::NamespacedCall {
+                        namespace,
+                        function,
+                        arguments,
+                    },
+                    None => return None,
+                }
             },
-            Token::StringLiteral(s) => Some(Expression::Literal(Literal::String(s.clone()))),
-            Token::IntegerLiteral(s) => match s.parse::<i64>() {
+            token => {
+                self.no_prefix_parse_fn_error(token.clone());
+                return None;
+            }
+        };
+
+        while !self.peek_token_is(Token::SemiColon) && precedence < token_to_precedence(&self.peek) {
+            match &self.peek {
+                Token::Plus
+                | Token::Minus
+                | Token::ForwardSlash
+                | Token::Product
+                | Token::Equal
+                | Token::DoesNotEqual
+                | Token::GreaterThan
+                | Token::LessThan
+                | Token::GTOrEqual
+                | Token::LTOrEqual
+                | Token::Caret
+                | Token::Modulo
+                | Token::Ampersand
+                | Token::Cons
+                | Token::Pipe
+                | Token::Concat => {
+                    self.next_token();
+                    if let Some(expr) = self.parse_infix_expression(left) {
+                        left = expr;
+                    } else {
+                        return None;
+                    }
+                }
+                Token::LeftParen => {
+                    self.next_token();
+                    if let Some(expr) = self.parse_call_expression(left) {
+                        left = expr;
+                    } else {
+                        return None;
+                    }
+                }
+                Token::Period => {
+                    self.next_token();
+                    self.next_token(); // move to the property name
+                    let property = self.curr.clone();
+                    left = Expression::DotAccess {
+                        object: Box::new(left),
+                        property,
+                    };
+                }
+                _ => break,
+            }
+        }
+
+        Some(left)
+    }
+
+    fn parse_literal(&mut self) -> Option<Expression> {
+        match &self.curr {
+            Token::IntegerLiteral(s) => match s.parse::<i128>() {
                 Ok(d) => Some(Expression::Literal(Literal::Integer(d))),
                 Err(_) => {
                     self.errors.push(ParseError::Log(format!("Could not parse {} as integer", s)));
-                    return None;
+                    None
                 }
             },
             Token::FloatLiteral(s) => match s.parse::<f64>() {
                 Ok(d) => Some(Expression::Literal(Literal::Float(d))),
                 Err(_) => {
                     self.errors.push(ParseError::Log(format!("Could not parse {} as float", s)));
-                    return None;
+                    None
                 }
             },
+            Token::StringLiteral(s) => Some(Expression::Literal(Literal::String(s.clone()))),
             Token::Boolean(b) => Some(Expression::Literal(Literal::Boolean(*b))),
             Token::UnitType => Some(Expression::Literal(Literal::Unit)),
-            Token::LeftBracket => self.parse_list_expression(),
-            Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
-            Token::LeftParen => {
-                self.next_token();
-                let expr = self.parse_expression(Precedence::Lowest);
-                if !self.expect_peek(Token::RightParen) {
-                    return None;
-                }
-                expr
-            }
-            Token::LeftBrace => self.parse_record_expression(),
-            Token::If => self.parse_if_expression(),
-            Token::Fn => self.parse_function_literal(),
-            Token::Some => self.parse_some_expression(),
-            Token::None => Some(Expression::OptionNone),
-            Token::Ok => self.parse_ok_expression(),
-            Token::Err => self.parse_err_expression(),
-            Token::Map | Token::Filter | Token::Fold | Token::Any | Token::All | Token::Println => self.parse_builtin_function(self.curr.clone()),
-            Token::StringType | Token::IntType | Token::FloatType | Token::CharType | Token::BoolType |  Token::List | Token::Option | Token::Result | Token::HashMap => {
-                Some(Expression::Identifier(self.curr.clone()))
-            },
-            _ => {
-                self.no_prefix_parse_fn_error(self.curr.clone());
-                return None;
-            }
-        };
-
-    
-
-        // Infix expressions
-        while !self.peek_token_is(Token::SemiColon) && precedence < token_to_precedence(&self.peek)
-        {
-            match self.peek {
-                Token::Plus
-                | Token::Minus
-                | Token::Modulo
-                | Token::Product
-                | Token::ForwardSlash
-                | Token::Equal
-                | Token::DoesNotEqual
-                | Token::LessThan
-                | Token::GreaterThan
-                | Token::Pipe
-                | Token::Cons
-                | Token::Concat => {
-                    self.next_token();
-                    left = self.parse_infix_expression(left.unwrap());
-                }
-                Token::LeftParen => {
-                    self.next_token();
-                    left = self.parse_call_expression(left.unwrap());
-                }
-                _ => return left,
-            }
+            _ => None,
         }
-
-        left
     }
 
-    fn parse_builtin_function(&mut self, function: Token) -> Option<Expression> {
-        self.next_token(); // Move to the token after the function name
-        
-        // Parse the arguments (should start with left paren)
-        if !self.curr_token_is(Token::LeftParen) {
-            self.errors.push(ParseError::Log(format!("Expected '(' after builtin function, got {:?}", self.curr)));
-            return None;
-        }
-        
-        let args = self.parse_call_arguments()?;
-        
-        Some(Expression::BuiltIn {
-            function,
-            arguments: args,
-        })
-    }
-
-    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
-        let mut args = Vec::new();
-        
-        // Handle empty argument list
-        self.next_token(); // Move past the left paren
-        if self.curr_token_is(Token::RightParen) {
-            return Some(args);
-        }
-        
-        // Parse first argument
-        if let Some(exp) = self.parse_expression(Precedence::Lowest) {
-            args.push(exp);
-        } else {
-            return None;
-        }
-        
-        // Parse remaining arguments
-        while self.peek_token_is(Token::Comma) {
-            self.next_token(); // consume comma
-            self.next_token(); // move to next arg
-            
-            if let Some(exp) = self.parse_expression(Precedence::Lowest) {
-                args.push(exp);
-            } else {
-                return None;
-            }
-        }
-        
-        // Check for closing parenthesis
-        if !self.peek_token_is(Token::RightParen) {
-            self.errors.push(ParseError::Log(format!("Expected ')' after arguments, got {:?}", self.peek)));
-            return None;
-        }
-        
-        self.next_token(); // consume right paren
-        
-        Some(args)
-    }
-
-    fn parse_list_expression(&mut self) -> Option<Expression> {
-        let mut elements = vec![];
-        
-        if self.peek_token_is(Token::RightBracket) {
-            self.next_token();
-            return Some(Expression::Literal(Literal::List(elements)));
-        }
+    fn parse_grouped_expression(&mut self) -> Option<Expression> {
         self.next_token();
-        
-        // Parse the first element
-        let first_element = match self.parse_expression(Precedence::Lowest) {
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_peek(Token::RightParen) {
+            return None;
+        }
+        Some(expr)
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        self.next_token();
+        let condition = match self.parse_expression(Precedence::Lowest) {
             Some(expr) => expr,
             None => return None,
         };
-        
-        // Check if this is a range expression [elem1..elem2]
-        if self.peek_token_is(Token::Over) {
-            self.next_token(); // consume the '..' token
-            self.next_token(); // move to the second expression
-            
-            // Parse the end of the range
-            let end_element = match self.parse_expression(Precedence::Lowest) {
-                Some(expr) => expr,
-                None => return None,
-            };
-            
-            if !self.expect_peek(Token::RightBracket) {
-                return None;
-            }
-            
-            return Some(Expression::Range {
-                start: Box::new(first_element),
-                end: Box::new(end_element),
-            });
-        }
-        
-        // If not a range, proceed with normal list parsing
-        elements.push(first_element);
-        
-        while self.peek_token_is(Token::Comma) {
-            self.next_token();
-            self.next_token();
-            match self.parse_expression(Precedence::Lowest) {
-                Some(expr) => elements.push(expr),
-                None => return None,
-            }
-        }
-            
-        if !self.expect_peek(Token::RightBracket) {
-            return None;
-        }
-        Some(Expression::Literal(Literal::List(elements)))
-    }
 
-    fn parse_record_expression(&mut self) -> Option<Expression> {
-        let mut fields = Vec::new();
-        
-        // Consume opening brace
-        if !self.curr_token_is(Token::LeftBrace) {
+        if !self.expect_peek(Token::LeftBrace) {
             return None;
         }
-        
-        while !self.peek_token_is(Token::RightBrace) {
-            self.next_token(); // move to field name
-            let field_name = self.parse_identifier()?;
-            
-            // Expect = for assignment
-            if !self.expect_peek(Token::Assign) {
+        let consequence = self.parse_block_statement();
+        let mut alternative: Option<Vec<Statement>> = None;
+        if self.peek_token_is(Token::Else) {
+            self.next_token();
+            if !self.expect_peek(Token::LeftBrace) {
                 return None;
             }
-            
-            self.next_token(); // move to value
-            let field_value = self.parse_expression(Precedence::Lowest)?;
-            fields.push((field_name, field_value));
-            
-            // Handle comma if present
-            if self.peek_token_is(Token::Comma) {
-                self.next_token(); // consume comma
-            }
+            alternative = Some(self.parse_block_statement());
         }
-        
-        // Consume closing brace and semicolon
-        if !self.expect_peek(Token::RightBrace) {
-            return None;
-        }
-        if self.peek_token_is(Token::SemiColon) {
-            self.next_token();
-        }
-        
-        Some(Expression::Literal(Literal::Record(fields)))
+        Some(Expression::If {
+            condition: Box::new(condition),
+            consequence,
+            alternative,
+        })
     }
 
     fn parse_function_literal(&mut self) -> Option<Expression> {
@@ -534,19 +448,6 @@ impl Parser {
         Some(Statement::Expression(expr))
     }
 
-    fn parse_prefix_expression(&mut self) -> Option<Expression> {
-        let prefix = match self.curr {
-            Token::Bang => Prefix::Bang,
-            Token::Minus => Prefix::Minus,
-            Token::Plus => Prefix::Plus,
-            _ => return None,
-        };
-
-        self.next_token();
-        self.parse_expression(Precedence::Prefix)
-            .map(|expr| Expression::Prefix(prefix, Box::new(expr)))
-    }
-
     fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
         //     Caret,
         //     Ampersand,
@@ -575,30 +476,96 @@ impl Parser {
             .map(|expr| Expression::Infix(infix, Box::new(left), Box::new(expr)))
     }
 
-    fn parse_if_expression(&mut self) -> Option<Expression> {
+    fn parse_list_expression(&mut self) -> Option<Expression> {
+        let mut elements = vec![];
+        
+        if self.peek_token_is(Token::RightBracket) {
+            self.next_token();
+            return Some(Expression::Literal(Literal::List(elements)));
+        }
         self.next_token();
-        let condition = match self.parse_expression(Precedence::Lowest) {
+        
+        // Parse the first element
+        let first_element = match self.parse_expression(Precedence::Lowest) {
             Some(expr) => expr,
             None => return None,
         };
-
-        if !self.expect_peek(Token::LeftBrace) {
-            return None;
-        }
-        let consequence = self.parse_block_statement();
-        let mut alternative: Option<Vec<Statement>> = None;
-        if self.peek_token_is(Token::Else) {
-            self.next_token();
-            if !self.expect_peek(Token::LeftBrace) {
+        
+        // Check if this is a range expression [elem1..elem2]
+        if self.peek_token_is(Token::Over) {
+            self.next_token(); // consume the '..' token
+            self.next_token(); // move to the second expression
+            
+            // Parse the end of the range
+            let end_element = match self.parse_expression(Precedence::Lowest) {
+                Some(expr) => expr,
+                None => return None,
+            };
+            
+            if !self.expect_peek(Token::RightBracket) {
                 return None;
             }
-            alternative = Some(self.parse_block_statement());
+            
+            return Some(Expression::Range {
+                start: Box::new(first_element),
+                end: Box::new(end_element),
+            });
         }
-        Some(Expression::If {
-            condition: Box::new(condition),
-            consequence,
-            alternative,
-        })
+        
+        // If not a range, proceed with normal list parsing
+        elements.push(first_element);
+        
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            match self.parse_expression(Precedence::Lowest) {
+                Some(expr) => elements.push(expr),
+                None => return None,
+            }
+        }
+            
+        if !self.expect_peek(Token::RightBracket) {
+            return None;
+        }
+        Some(Expression::Literal(Literal::List(elements)))
+    }
+
+    fn parse_record_expression(&mut self) -> Option<Expression> {
+        let mut fields = Vec::new();
+        
+        // Consume opening brace
+        if !self.curr_token_is(Token::LeftBrace) {
+            return None;
+        }
+        
+        while !self.peek_token_is(Token::RightBrace) {
+            self.next_token(); // move to field name
+            let field_name = self.parse_identifier()?;
+            
+            // Expect = for assignment
+            if !self.expect_peek(Token::Assign) {
+                return None;
+            }
+            
+            self.next_token(); // move to value
+            let field_value = self.parse_expression(Precedence::Lowest)?;
+            fields.push((field_name, field_value));
+            
+            // Handle comma if present
+            if self.peek_token_is(Token::Comma) {
+                self.next_token(); // consume comma
+            }
+        }
+        
+        // Consume closing brace and semicolon
+        if !self.expect_peek(Token::RightBrace) {
+            return None;
+        }
+        if self.peek_token_is(Token::SemiColon) {
+            self.next_token();
+        }
+        
+        Some(Expression::Literal(Literal::Record(fields)))
     }
 
     fn parse_block_statement(&mut self) -> Program {
@@ -895,6 +862,45 @@ impl Parser {
         self.next_token(); // consume 'Err'
         let expr = self.parse_expression(Precedence::Lowest)?;
         Some(Expression::ResultErr(Box::new(expr)))
+    }
+
+    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
+        let mut args = Vec::new();
+        
+        // Handle empty argument list
+        self.next_token(); // Move past the left paren
+        if self.curr_token_is(Token::RightParen) {
+            return Some(args);
+        }
+        
+        // Parse first argument
+        if let Some(exp) = self.parse_expression(Precedence::Lowest) {
+            args.push(exp);
+        } else {
+            return None;
+        }
+        
+        // Parse remaining arguments
+        while self.peek_token_is(Token::Comma) {
+            self.next_token(); // consume comma
+            self.next_token(); // move to next arg
+            
+            if let Some(exp) = self.parse_expression(Precedence::Lowest) {
+                args.push(exp);
+            } else {
+                return None;
+            }
+        }
+        
+        // Check for closing parenthesis
+        if !self.peek_token_is(Token::RightParen) {
+            self.errors.push(ParseError::Log(format!("Expected ')' after arguments, got {:?}", self.peek)));
+            return None;
+        }
+        
+        self.next_token(); // consume right paren
+        
+        Some(args)
     }
 }
 

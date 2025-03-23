@@ -169,3 +169,27 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
     }
 }
 
+
+pub fn flatten_builtin(args: Vec<Object>) -> Object {
+    if args.len() != 1 {
+        return Object::Error("flatten expects exactly one argument: list of lists".to_string());
+    }
+
+    let list = &args[0];
+
+    match list {
+        Object::List(elements) => {
+            let mut flattened = Vec::new();
+            for element in elements {
+                match element {
+                    Object::List(inner_list) => {
+                        flattened.extend(inner_list.iter().cloned());
+                    }
+                    _ => flattened.push(element.clone()),
+                }
+            }
+            Object::List(flattened)
+        }
+        _ => Object::Error("flatten expects a list of lists".to_string()),
+    }
+}

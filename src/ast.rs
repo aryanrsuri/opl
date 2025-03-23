@@ -15,7 +15,7 @@ pub enum Statement {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Literal {
-    Integer(i64),
+    Integer(i128),
     Float(f64),
     String(String),
     Boolean(bool),
@@ -61,7 +61,13 @@ pub enum Expression {
         expr: Box<Expression>,
         arms: Vec<(Pattern, Program)>,
     },
-    BuiltIn {
+    // Replace BuiltIn with DotAccess and NamespacedCall
+    DotAccess {
+        object: Box<Expression>,
+        property: Identifier,
+    },
+    NamespacedCall {
+        namespace: Identifier,
         function: Identifier,
         arguments: Vec<Expression>,
     },
@@ -148,4 +154,14 @@ pub enum Infix {
     Ampersand,
     Cons,
     Pipe,
+}
+
+// Add namespace enum to track available namespaces
+#[derive(PartialEq, Debug, Clone)]
+pub enum Namespace {
+    Std,    // Standard library (println, etc)
+    List,   // List operations (map, filter, etc)
+    Option, // Option operations
+    Result, // Result operations
+    String, // String operations
 }

@@ -90,8 +90,7 @@ pub enum Token {
     Map, // map : (a -> b) -> [a] -> [b]
     Filter, // filter : (a -> bool) -> [a] -> [a]
     Fold, // fold : (b -> a -> b) -> b -> [a] -> b
-    Any, // any : (a -> bool) -> [a] -> bool
-    All, // all : (a -> bool) -> [a] -> bool
+    Flatten, // flatten : [[a]] -> [a]
     Println, // println : [a] -> ()
 
 
@@ -238,37 +237,26 @@ impl Lexer {
             "raise" => Token::Raise,
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
-            // Lowercase primitive types
             "int" => Token::IntType,
             "float" => Token::FloatType,
             "string" => Token::StringType,
             "char" => Token::CharType,
             "bool" => Token::BoolType,
             "unit" => Token::UnitType,
-            // Lowercase type constructors
             "list" => Token::List,
             "option" => Token::Option,
             "result" => Token::Result,
             "hashmap" => Token::HashMap,
             "tuple" => Token::Tuple,
-            // Uppercase type constructors
-            //"List" => Token::List,
-            // "Option" => Token::Option,
-            //"Result" => Token::Result,
-            //"Map" => Token::Map,
-            //"Record" => Token::Record,
             "Ok" => Token::Ok,
             "Err" => Token::Err,
             "Some" => Token::Some,
             "None" => Token::None,
-            // Built in functions
             "map" => Token::Map,
             "filter" => Token::Filter,
             "fold" => Token::Fold,
-            "any" => Token::Any,
-            "all" => Token::All,
+            "flatten" => Token::Flatten,
             "println" => Token::Println,
-            // TODO: Add the uppercase type constructors only for type module files
             _ => Token::Identifier(literal),
         };
     }

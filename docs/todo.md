@@ -27,6 +27,10 @@
 - [ ] Better error messages
 - [ ] Result (Ok | Err) Evaluation
 - [ ] Option (Some | None) Evaluation 
+- [ ] Builtin namespaces
+    - [ ] `std` namespace w builtin collections
+    - [ ] `type` namespace i.e `list.map(..)`
+- [ ] bug (triage): you can declare a record with a type mismatch, type mismatch only detected on evalution or println i.e `let t ({name:string}) = {name = 1};` works, but `t` returns `# Type mismatch for field 'tag': expected Alias { name: BuiltIn(List), parameters: [Alias { name: BuiltIn(String), parameters: [] }] }, got Integer(1)`
 
 Commit Comments:
 

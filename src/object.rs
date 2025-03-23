@@ -1,4 +1,4 @@
-use crate::ast::{Identifier, Statement};
+use crate::ast::{Identifier, Statement, Namespace};
 use crate::environment::Env;
 use std::cell::RefCell;
 use std::fmt;
@@ -7,28 +7,32 @@ use std::rc::Rc;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Object {
     Unit,
-    Integer(i64),
+    Integer(i128),
     Float(f64),
     Boolean(bool),
     String(String),
     List(Vec<Object>),
-
+    Record {
+        type_name: String,
+        fields: Vec<(Identifier, Object)>,
+    },
+    TypeDefinition {
+        name: String,
+        fields: Vec<(String, String)>, // field_name -> type_name
+    },
     Function(Vec<Identifier>, Vec<Statement>, Rc<RefCell<Env>>),
-
     Return(Box<Object>),
-
-    // Option
     OptionSome(Box<Object>),
     OptionNone,
-    // Result
     ResultOk(Box<Object>),
     ResultErr(Box<Object>),
-
-    // Type Errors
     Error(String),
-
-    // Builtin
     Builtin(fn(Vec<Object>) -> Object),
+    BuiltinMethod {
+        namespace: Namespace,
+        method: String,
+        receiver: Box<Object>,
+    },
 }
 
 impl fmt::Display for Object {
@@ -45,11 +49,24 @@ impl fmt::Display for Object {
                 write!(f, "fn {} -> {{ ... }}", parameters.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", "))
             }
             Object::List(ref value) => write!(f, "[{}]", value.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")),
+            Object::Record { type_name, fields } => {
+                write!(f, "{} {{ {} }}", type_name, fields.iter()
+                    .map(|(k, v)| format!("{} = {}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", "))
+            },
+            Object::TypeDefinition { name, fields } => {
+                write!(f, "type {} = {{ {} }}", name, fields.iter()
+                    .map(|(name, type_name)| format!("{}: {}", name, type_name))
+                    .collect::<Vec<String>>()
+                    .join(", "))
+            },
             Object::Return(ref value) => write!(f, "{}", value),
             Object::ResultOk(ref value) => write!(f, "{}", value),
             Object::ResultErr(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
             Object::Builtin(ref value) => write!(f, "{:?}", value),
+            Object::BuiltinMethod { namespace, method, .. } => write!(f, "{:?}.{}", namespace, method),
         }
     }
 }
