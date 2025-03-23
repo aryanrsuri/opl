@@ -193,13 +193,33 @@ impl Parser {
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
         let mut left = match &self.curr {
-            Token::Identifier(_) => self.parse_identifier().map(Expression::Identifier)?,
-            Token::IntegerLiteral(_) | Token::FloatLiteral(_) | Token::StringLiteral(_) | Token::Boolean(_) => self.parse_literal()?,
+            Token::Identifier(_) => Expression::Identifier(self.curr.clone()),
+            Token::IntegerLiteral(_) | Token::FloatLiteral(_) | Token::StringLiteral(_) | Token::Boolean(_) => {
+                match self.parse_literal() {
+                    Some(expr) => expr,
+                    None => return None,
+                }
+            },
             Token::LeftParen => self.parse_grouped_expression()?,
             Token::If => self.parse_if_expression()?,
             Token::Fn => self.parse_function_literal()?,
             Token::LeftBracket => self.parse_list_expression()?,
             Token::LeftBrace => self.parse_record_expression()?,
+            Token::Some => self.parse_some_expression()?,
+            Token::Ok => self.parse_ok_expression()?,
+            Token::Err => self.parse_err_expression()?,
+            Token::None => self.parse_none_expression()?,
+            Token::Plus | Token::Minus | Token::Bang => {
+                let prefix = match &self.curr {
+                    Token::Plus => Prefix::Plus,
+                    Token::Minus => Prefix::Minus,
+                    Token::Bang => Prefix::Bang,
+                    _ => unreachable!(),
+                };
+                self.next_token();
+                let expr = self.parse_expression(Precedence::Lowest)?;
+                Expression::Prefix(prefix, Box::new(expr))
+            },
             Token::Std | Token::List => {
                 let namespace = self.curr.clone();
                 if !self.expect_peek(Token::Period) {
@@ -846,12 +866,6 @@ impl Parser {
         }
     }
 
-    fn parse_some_expression(&mut self) -> Option<Expression> {
-        self.next_token(); // consume 'Some'
-        let expr = self.parse_expression(Precedence::Lowest)?;
-        Some(Expression::OptionSome(Box::new(expr)))
-    }
-
     fn parse_ok_expression(&mut self) -> Option<Expression> {
         self.next_token(); // consume 'Ok'
         let expr = self.parse_expression(Precedence::Lowest)?;
@@ -862,6 +876,17 @@ impl Parser {
         self.next_token(); // consume 'Err'
         let expr = self.parse_expression(Precedence::Lowest)?;
         Some(Expression::ResultErr(Box::new(expr)))
+    }
+
+    fn parse_some_expression(&mut self) -> Option<Expression> {
+        self.next_token(); // consume 'Some'
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        Some(Expression::OptionSome(Box::new(expr)))
+    }
+
+    fn parse_none_expression(&mut self) -> Option<Expression> {
+        self.next_token(); // consume 'None'
+        Some(Expression::OptionNone)
     }
 
     fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {

@@ -43,7 +43,7 @@ impl fmt::Display for Object {
             Object::Boolean(ref value) => write!(f, "{}", value),
             Object::String(ref value) => write!(f, "\"{}\"", value),
             Object::Unit => write!(f, "()"),
-            Object::OptionSome(ref value) => write!(f, "Some({})", value),
+            Object::OptionSome(ref value) => write!(f, "Some {}", value),
             Object::OptionNone => write!(f, "None"),
             Object::Function(ref parameters, _, _) => {
                 write!(f, "fn {} -> {{ ... }}", parameters.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", "))
@@ -62,8 +62,8 @@ impl fmt::Display for Object {
                     .join(", "))
             },
             Object::Return(ref value) => write!(f, "{}", value),
-            Object::ResultOk(ref value) => write!(f, "{}", value),
-            Object::ResultErr(ref value) => write!(f, "{}", value),
+            Object::ResultOk(ref value) => write!(f, "Ok {}", value),
+            Object::ResultErr(ref value) => write!(f, "Err {}", value),
             Object::Error(ref value) => write!(f, "{}", value),
             Object::Builtin(ref value) => write!(f, "{:?}", value),
             Object::BuiltinMethod { namespace, method, .. } => write!(f, "{:?}.{}", namespace, method),

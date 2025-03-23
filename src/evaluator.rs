@@ -23,9 +23,8 @@ impl Evaluator {
 
     pub fn is_truthy(&self, object: &Object) -> bool {
         match object {
-            Object::Boolean(true) => true,
-            Object::Boolean(false) => false,
-            _ => true,
+            Object::Boolean(value) => *value,
+            _ => false  // Non-boolean values should be treated as false in conditionals
         }
     }
 
@@ -156,7 +155,34 @@ impl Evaluator {
             Expression::NamespacedCall { namespace, function, arguments } => {
                 self.eval_namespaced_call(namespace, function, arguments)
             },
+            Expression::OptionSome(expression) => self.eval_option_some(expression),
+            Expression::ResultOk(expression) => self.eval_result_ok(expression),
+            Expression::ResultErr(expression) => self.eval_result_err(expression),
             _ => unreachable!("[ERR] Only literal expression evaluation works."),
+        }
+    }
+
+    fn eval_option_some(&mut self, expression: &Expression) -> Option<Object> {
+        let value = self.eval_expression(expression);
+        match value {
+            Some(v) => Some(Object::OptionSome(Box::new(v))),
+            None => Some(Object::OptionNone),
+        }
+    }
+
+    fn eval_result_ok(&mut self, expression: &Expression) -> Option<Object> {   
+        let value = self.eval_expression(expression);
+        match value {
+            Some(v) => Some(Object::ResultOk(Box::new(v))),
+            None => Some(Object::ResultErr(Box::new(Object::Error("Failed to evaluate result".to_string())))),
+        }
+    }
+
+    fn eval_result_err(&mut self, expression: &Expression) -> Option<Object> {
+        let value = self.eval_expression(expression);
+        match value {
+            Some(v) => Some(Object::ResultErr(Box::new(v))),
+            None => Some(Object::ResultErr(Box::new(Object::Error("Failed to evaluate result".to_string())))),
         }
     }
 
