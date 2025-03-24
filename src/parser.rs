@@ -176,10 +176,6 @@ impl Parser {
         }
     }
 
-    // fn peek_precedence(&mut self) -> Precedence {
-    //     token_to_precedence(&self.peek)
-    // }
-
     fn curr_precedence(&mut self) -> Precedence {
         token_to_precedence(&self.curr)
     }
@@ -220,7 +216,8 @@ impl Parser {
                 let expr = self.parse_expression(Precedence::Lowest)?;
                 Expression::Prefix(prefix, Box::new(expr))
             },
-            Token::Std | Token::List => {
+            // Add string namespace, such as string.from_int, string.from_float, string.from_bool, string.length
+            Token::Std | Token::List | Token::StringType => {
                 let namespace = self.curr.clone();
                 if !self.expect_peek(Token::Period) {
                     return None;

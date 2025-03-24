@@ -1,5 +1,14 @@
 ## Todo
-- [ ] (epic) Add static and inferred types to objects 
+- [ ] (epic) Add static and inferred types to objects and ast
+    - [ ] (!!!!!) Static types for let expression
+    - [ ] Type inference for expressions
+    - [ ] Type inference for functions
+    - [ ] Type inference for records and unions
+    - [ ] Type checking at compile time
+- [ ] (!!!!) Tuple
+    - [ ] parse
+    - [ ] eval
+    - [ ] operations
 - [x] String Concatenation `++`
 - [ ] Builtin/Std library
     - [x] println
@@ -7,37 +16,72 @@
     - [x] fold,
     - [x] filter
     - [x] flatten
-    - [ ] flatmap (this could deprecate flatten through use of an identity fn x->x;)
+    - [x] flatmap
+    - [ ] More list operations (head, tail, last)
+    - [ ] More string operations (substring, replace, join)
+    - [ ] Math operations (min, max, sum, product)
 - [ ] List Evaluation
     - [x] Declaration
     - [x] List building using _over_ operator `..` 
-    - [x] List Concatenation `::`
-    - [ ] Indexes of Lists
+    - [x] List Concatenation `++`
+    - [x] Indexes of Lists
+    - [ ] List slicing (e.g., [1..10].slice(2, 5))
+    - [ ] List comprehension syntax 
+- [ ] Char type
 - [ ] Match Statement
     - [ ] Pattern matches
     - [ ] Usage as function
+    - [ ] Exhaustiveness checking
 - [ ] Type Alias
-    - [ ] Decleration
+    - [ ] Declaration
     - [ ] Usage in environment
+    - [ ] Generic type parameters
 - [ ] Tagged Unions
     - [ ] Type evaluation
     - [ ] Declaration and Usage
+    - [ ] Pattern matching with unions
 - [ ] Records
-    - [ ] Type evaluation
-    - [ ] Declaration and Usage
-    - [ ] Dot `.` access
+    - [x] Type evaluation
+    - [x] Declaration and Usage
+    - [x] Dot `.` access
+    - [ ] Record update syntax
+    - [ ] Record field punning
 - [ ] Better error messages
-- [ ] Result (Ok | Err) Evaluation
-- [ ] Option (Some | None) Evaluation 
+    - [ ] Type error messages with suggestions
+    - [ ] Syntax error messages with context
+    - [ ] Runtime error messages with stack traces
+- [~] Result (Ok | Err) Evaluation
+    - [ ] Result combinators (map, and_then, or_else)
+    - [ ] Result pattern matching
+- [~] Option (Some | None) Evaluation 
+    - [ ] Option combinators (map, and_then, or_else)
+    - [ ] Option pattern matching
+- [ ] `string` namespace
+    - [x] from_int, from_float, from_bool
+    - [x] string.length
+    - [ ] string.replace
+    - [ ] string.contains
+    - [ ] string.starts_with/ends_with
 - [x] Builtin namespaces
     - [x] `std` namespace w builtin collections
     - [x] `type` namespace i.e `list.map(..)`
-    - [ ] namesapce for primitive type conversions
+    - [ ] `math` namespace for mathematical operations
+    - [ ] `io` namespace for input/output operations
 - [ ] bug (triage): you can declare a record with a type mismatch, type mismatch only detected on evalution or println i.e `let t ({name:string}) = {name = 1};` works, but `t` returns `# Type mismatch for field 'tag': expected Alias { name: BuiltIn(List), parameters: [Alias { name: BuiltIn(String), parameters: [] }] }, got Integer(1)`
+- [ ] Testing
+    - [ ] Unit tests for all builtin functions
+    - [ ] Integration tests for language features
+    - [ ] Property-based testing for type system
+- [ ] Documentation
+    - [ ] Language specification
+    - [ ] Standard library documentation
+    - [ ] Examples and tutorials
+- [ ] Performance
+    - [ ] Optimize list operations
+    - [ ] Optimize string operations
+    - [ ] Memory usage optimization
+- [ ] Tooling
+    - [ ] REPL improvements (history, completion)
+    - [ ] Debugger
+    - [ ] Profiler
 
-Commit Comments:
-
-- Added range expressions for list creation
-- Added filter, fold, map builtin functions
-- Added comment *evaluation
-- Repl evaluates by default, with an optional --parse flag

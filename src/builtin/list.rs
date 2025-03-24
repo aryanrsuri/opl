@@ -1,9 +1,9 @@
-use crate::object::Object;
 use crate::environment::Env;
 use crate::evaluator::Evaluator;
 use crate::lexer::Token;
-use std::rc::Rc;
+use crate::object::Object;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub fn filter_builtin(args: Vec<Object>) -> Object {
     if args.len() != 2 {
@@ -29,15 +29,14 @@ pub fn filter_builtin(args: Vec<Object>) -> Object {
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
                 let result = match evaluator.eval_block(body) {
-                    Some(Object::Return(value)) => *value, // Unwrap the Return value
-                    Some(value) => value,        // Use the direct result
+                    Some(Object::Return(value)) => *value,
+                    Some(value) => value,
                     None => return Object::Error("Function returned no value".to_string()),
                 };
                 
-                // Check if result is a boolean
                 match result {
                     Object::Boolean(true) => filtered.push(element.clone()),
-                    Object::Boolean(false) => {}, // Skip this element
+                    Object::Boolean(false) => {},
                     _ => return Object::Error(format!("Filter function must return a boolean, got {:?}", result)),
                 }
             }
@@ -47,23 +46,6 @@ pub fn filter_builtin(args: Vec<Object>) -> Object {
         (_, Object::List(_)) => Object::Error("First argument must be a function".to_string()),
         (Object::Function(_, _, _), _) => Object::Error("Second argument must be a list".to_string()),
         _ => Object::Error("Invalid arguments for filter".to_string()),
-    }
-}
-
-
-
-
-pub fn println_builtin(args: Vec<Object>) -> Object {
-    if args.len() != 1 {
-        return Object::Error("println expects exactly one argument".to_string());
-    }
-
-    match &args[0] {
-        Object::String(s) => {
-            println!("{}", s);
-            Object::Unit
-        }
-        _ => Object::Error("println expects a string argument".to_string()),
     }
 }
 
@@ -97,7 +79,6 @@ pub fn map_builtin(args: Vec<Object>) -> Object {
                 }
             }
 
-            // Check that all mapped values are of the same type
             if !mapped.is_empty() {
                 let first = &mapped[0];
                 for value in &mapped {
@@ -135,14 +116,12 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
             for element in elements {
                 let mut inner_env = Env::new_with_outer(Rc::clone(env));
                 
-                // Set the accumulator parameter
                 if let Token::Identifier(ref name) = params[0] {
                     inner_env.set(name.clone(), accumulator.clone());
                 } else {
                     return Object::Error("First parameter must be an identifier".to_string());
                 }
                 
-                // Set the current element parameter
                 if let Token::Identifier(ref name) = params[1] {
                     inner_env.set(name.clone(), element.clone());
                 } else {
@@ -168,7 +147,6 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
         (_, _, _) => Object::Error("Invalid arguments for fold".to_string()),
     }
 }
-
 
 pub fn flatten_builtin(args: Vec<Object>) -> Object {
     if args.len() != 1 {
@@ -218,22 +196,18 @@ pub fn flatmap_builtin(args: Vec<Object>) -> Object {
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
                 match evaluator.eval_block(body) {
-                    Some(Object::Return(value)) => {
-                        match *value {
-                            Object::List(inner_list) => {
-                                flattened.extend(inner_list.iter().cloned());
-                            }
-                            other => flattened.push(other),
+                    Some(Object::Return(value)) => match *value {
+                        Object::List(inner_list) => {
+                            flattened.extend(inner_list.iter().cloned());
                         }
-                    }
-                    Some(value) => {
-                        match value {
-                            Object::List(inner_list) => {
-                                flattened.extend(inner_list.iter().cloned());
-                            }
-                            other => flattened.push(other),
+                        other => flattened.push(other),
+                    },
+                    Some(value) => match value {
+                        Object::List(inner_list) => {
+                            flattened.extend(inner_list.iter().cloned());
                         }
-                    }
+                        other => flattened.push(other),
+                    },
                     None => return Object::Error("Function returned no value".to_string()),
                 }
             }

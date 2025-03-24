@@ -3,7 +3,9 @@ use crate::ast::*;
 use crate::environment::Env;
 use crate::lexer::Token;
 use crate::object::Object;
-use crate::builtin::{println_builtin, map_builtin, fold_builtin, filter_builtin, flatten_builtin, flatmap_builtin};
+use crate::builtin::list::{map_builtin, fold_builtin, filter_builtin, flatten_builtin, flatmap_builtin};
+use crate::builtin::std::println_builtin;
+use crate::builtin::string::{from_int_builtin, from_float_builtin, from_bool_builtin, length_builtin, split_builtin};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -512,6 +514,20 @@ impl Evaluator {
 
     fn eval_infix(&mut self, infix: &Infix, left: Object, right: Object) -> Object {
         match left {
+            Object::List(left_value) => {
+                if let Object::List(right_value) = right {
+                    match infix {
+                        Infix::Concat => {
+                            let mut concat = left_value.clone();
+                            concat.extend(right_value.clone());
+                            Object::List(concat)
+                        },
+                        _ => Object::Error(String::from(format!("Invalid infix operator {:?} for given type: list", infix)))
+                    }
+                } else {
+                    Object::Error(String::from(format!("Invalid infix operator {:?} for given type: list", infix)))
+                }
+            }
             Object::Integer(left_value) => {
                 if let Object::List(right_value) = right {
                     match infix {
@@ -712,6 +728,21 @@ impl Evaluator {
                     _ => Some(Object::Error(format!("Unknown method '{}' for List type", name))),
                 }
             },
+            // Handle list indexing
+            (Object::List(elements), Token::IntegerLiteral(index_str)) => {
+                match index_str.parse::<i128>() {
+                    Ok(index) => {
+                        if index < 0 {
+                            return Some(Object::Error("List index cannot be negative".to_string()));
+                        }
+                        if index >= elements.len() as i128 {
+                            return Some(Object::Error("List index out of bounds".to_string()));
+                        }
+                        Some(elements[index as usize].clone())
+                    },
+                    Err(_) => Some(Object::Error("Invalid list index".to_string())),
+                }
+            },
             // Handle string methods
             (Object::String(_), Token::Identifier(name)) => {
                 match name.as_str() {
@@ -748,6 +779,11 @@ impl Evaluator {
             (Token::List, Token::Fold) => Some(fold_builtin(args)),
             (Token::List, Token::Flatten) => Some(flatten_builtin(args)),
             (Token::List, Token::FlatMap) => Some(flatmap_builtin(args)),
+            (Token::StringType, Token::FromInt) => Some(from_int_builtin(args)),
+            (Token::StringType, Token::FromFloat) => Some(from_float_builtin(args)),
+            (Token::StringType, Token::FromBool) => Some(from_bool_builtin(args)),
+            (Token::StringType, Token::Length) => Some(length_builtin(args)),
+            (Token::StringType, Token::Split) => Some(split_builtin(args)),
             _ => Some(Object::Error(format!(
                 "Unknown namespace/function combination: {:?}.{:?}",
                 namespace, function
