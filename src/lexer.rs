@@ -104,6 +104,9 @@ pub enum Token {
     FromFloat, // from_float : float -> string
     FromBool, // from_bool : bool -> string
 
+    // Option
+    Unwrap, // unwrap : option a -> a
+
 
 }
 
@@ -274,6 +277,7 @@ impl Lexer {
             "from_int" => Token::FromInt,
             "from_float" => Token::FromFloat,
             "from_bool" => Token::FromBool,
+            "unwrap" => Token::Unwrap,
             _ => Token::Identifier(literal),
         };
     }

@@ -14,7 +14,7 @@ pub fn filter_builtin(args: Vec<Object>) -> Object {
     let list = &args[1];
 
     match (function, list) {
-        (Object::Function(params, body, env), Object::List(elements)) => {
+        (Object::Function(params, body, env, type_env), Object::List(elements)) => {
             if params.len() != 1 {
                 return Object::Error("filter function must take exactly one argument".to_string());
             }
@@ -28,6 +28,7 @@ pub fn filter_builtin(args: Vec<Object>) -> Object {
                 }
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
+                evaluator.set_type_env(Rc::clone(type_env));
                 let result = match evaluator.eval_block(body) {
                     Some(Object::Return(value)) => *value,
                     Some(value) => value,
@@ -44,7 +45,7 @@ pub fn filter_builtin(args: Vec<Object>) -> Object {
             Object::List(filtered)
         }
         (_, Object::List(_)) => Object::Error("First argument must be a function".to_string()),
-        (Object::Function(_, _, _), _) => Object::Error("Second argument must be a list".to_string()),
+        (Object::Function(_, _, _, _), _) => Object::Error("Second argument must be a list".to_string()),
         _ => Object::Error("Invalid arguments for filter".to_string()),
     }
 }
@@ -58,7 +59,7 @@ pub fn map_builtin(args: Vec<Object>) -> Object {
     let list = &args[1];
 
     match (function, list) {
-        (Object::Function(params, body, env), Object::List(elements)) => {
+        (Object::Function(params, body, env, type_env), Object::List(elements)) => {
             if params.len() != 1 {
                 return Object::Error("map function must take exactly one argument".to_string());
             }
@@ -72,6 +73,7 @@ pub fn map_builtin(args: Vec<Object>) -> Object {
                 }
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
+                evaluator.set_type_env(Rc::clone(type_env));
                 match evaluator.eval_block(body) {
                     Some(Object::Return(value)) => mapped.push(*value),
                     Some(value) => mapped.push(value),
@@ -91,7 +93,7 @@ pub fn map_builtin(args: Vec<Object>) -> Object {
             Object::List(mapped)
         }
         (_, Object::List(_)) => Object::Error("First argument must be a function".to_string()),
-        (Object::Function(_, _, _), _) => Object::Error("Second argument must be a list".to_string()),
+        (Object::Function(_, _, _, _), _) => Object::Error("Second argument must be a list".to_string()),
         _ => Object::Error("Invalid arguments for map".to_string()),
     }
 }
@@ -106,7 +108,7 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
     let list = &args[2];
 
     match (function, initial, list) {
-        (Object::Function(params, body, env), initial, Object::List(elements)) => {
+        (Object::Function(params, body, env, type_env), initial, Object::List(elements)) => {
             if params.len() != 2 {
                 return Object::Error("fold function must take exactly two arguments: accumulator and element".to_string());
             }
@@ -129,6 +131,7 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
                 }
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
+                evaluator.set_type_env(Rc::clone(type_env));
                 match evaluator.eval_block(body) {
                     Some(Object::Return(value)) => accumulator = *value,
                     Some(value) => accumulator = value,
@@ -141,7 +144,7 @@ pub fn fold_builtin(args: Vec<Object>) -> Object {
         (_, _, not_list) if !matches!(not_list, Object::List(_)) => {
             Object::Error(format!("Third argument to fold must be a list, got {:?}", not_list))
         }
-        (not_fn, _, _) if !matches!(not_fn, Object::Function(_, _, _)) => {
+        (not_fn, _, _) if !matches!(not_fn, Object::Function(_, _, _, _)) => {
             Object::Error(format!("First argument to fold must be a function, got {:?}", not_fn))
         }
         (_, _, _) => Object::Error("Invalid arguments for fold".to_string()),
@@ -181,7 +184,7 @@ pub fn flatmap_builtin(args: Vec<Object>) -> Object {
     let list = &args[1];
 
     match (function, list) {
-        (Object::Function(params, body, env), Object::List(elements)) => {
+        (Object::Function(params, body, env, type_env), Object::List(elements)) => {
             if params.len() != 1 {
                 return Object::Error("flatmap function must take exactly one argument".to_string());
             }
@@ -195,6 +198,7 @@ pub fn flatmap_builtin(args: Vec<Object>) -> Object {
                 }
 
                 let mut evaluator = Evaluator::new(Rc::new(RefCell::new(inner_env)));
+                evaluator.set_type_env(Rc::clone(type_env));
                 match evaluator.eval_block(body) {
                     Some(Object::Return(value)) => match *value {
                         Object::List(inner_list) => {
@@ -214,7 +218,7 @@ pub fn flatmap_builtin(args: Vec<Object>) -> Object {
             Object::List(flattened)
         }
         (_, Object::List(_)) => Object::Error("First argument must be a function".to_string()),
-        (Object::Function(_, _, _), _) => Object::Error("Second argument must be a list".to_string()),
+        (Object::Function(_, _, _, _), _) => Object::Error("Second argument must be a list".to_string()),
         _ => Object::Error("Invalid arguments for flatmap".to_string()),
     }
 }

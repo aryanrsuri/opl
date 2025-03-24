@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::lexer::{Lexer, Token};
 use std::io::Write;
 
+
 #[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Precedence {
     Lowest,
@@ -217,7 +218,7 @@ impl Parser {
                 Expression::Prefix(prefix, Box::new(expr))
             },
             // Add string namespace, such as string.from_int, string.from_float, string.from_bool, string.length
-            Token::Std | Token::List | Token::StringType => {
+            Token::Std | Token::List | Token::StringType | Token::Option => {
                 let namespace = self.curr.clone();
                 if !self.expect_peek(Token::Period) {
                     return None;
@@ -755,30 +756,20 @@ impl Parser {
             ));
             return None;
         }
-
+        
+        let mut parameters = Vec::new();
         self.next_token();
         
-        // Parse parameter types
-        let mut parameters = Vec::new();
-        
-        // Parse first type
         let first_type = self.parse_type_annotation()?;
         parameters.push(first_type);
         
-        // Expect comma
-        if !self.expect_peek(Token::Comma) {
-            self.errors.push(ParseError::Log(
-                "Expected , between type parameters".to_string()
-            ));
-            return None;
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            let next_type = self.parse_type_annotation()?;
+            parameters.push(next_type);
         }
         
-        self.next_token();
-        // Parse second type
-        let second_type = self.parse_type_annotation()?;
-        parameters.push(second_type);
-        
-        // Expect right parenthesis
         if !self.expect_peek(Token::RightParen) {
             self.errors.push(ParseError::Log(
                 "Expected ) after type parameters".to_string()

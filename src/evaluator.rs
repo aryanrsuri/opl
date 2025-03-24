@@ -2,10 +2,11 @@ use crate::ast::Identifier;
 use crate::ast::*;
 use crate::environment::Env;
 use crate::lexer::Token;
-use crate::object::Object;
+use crate::object::{Object, TypeDefinitionInner};
 use crate::builtin::list::{map_builtin, fold_builtin, filter_builtin, flatten_builtin, flatmap_builtin};
 use crate::builtin::std::println_builtin;
 use crate::builtin::string::{from_int_builtin, from_float_builtin, from_bool_builtin, length_builtin, split_builtin};
+use crate::builtin::option::unwrap_builtin;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -21,6 +22,10 @@ impl Evaluator {
             env,
             type_env: Rc::new(RefCell::new(HashMap::new())),
         }
+    }
+
+    pub fn set_type_env(&mut self, type_env: Rc<RefCell<HashMap<String, Type>>>) {
+        self.type_env = type_env;
     }
 
     pub fn is_truthy(&self, object: &Object) -> bool {
@@ -61,7 +66,6 @@ impl Evaluator {
     fn eval_type(&mut self, identifier: &Identifier, declaration: &Type) -> Option<Object> {
         match declaration {
             Type::Record(fields) => {
-                // Store the record type definition in the type environment
                 if let Token::Identifier(name) = identifier {
                     self.type_env.borrow_mut().insert(name.clone(), Type::Record(fields.clone()));
                     None
@@ -136,6 +140,7 @@ impl Evaluator {
                 parameters.clone(),
                 body.clone(),
                 Rc::clone(&self.env),
+                Rc::clone(&self.type_env),
             )),
             Expression::Call {
                 function,
@@ -160,6 +165,38 @@ impl Evaluator {
             Expression::OptionSome(expression) => self.eval_option_some(expression),
             Expression::ResultOk(expression) => self.eval_result_ok(expression),
             Expression::ResultErr(expression) => self.eval_result_err(expression),
+            Expression::Variant(variant, value) => {
+                if let Token::Identifier(variant_name) = variant {
+                    // Find the type definition for this variant
+                    let type_name = self.type_env.borrow()
+                        .iter()
+                        .find(|(_, type_def)| {
+                            if let Type::Union(variants) = type_def {
+                                variants.iter().any(|(v, _)| v == variant)
+                            } else {
+                                false
+                            }
+                        })
+                        .map(|(name, _)| name.clone());
+
+                    if let Some(type_name) = type_name {
+                        let value = value.as_ref()
+                            .map(|expr| self.eval_expression(expr))
+                            .flatten()
+                            .unwrap_or(Object::Unit);
+
+                        Some(Object::Union {
+                            type_name,
+                            variant: variant_name.clone(),
+                            value: Box::new(value),
+                        })
+                    } else {
+                        Some(Object::Error(format!("Unknown variant: {}", variant_name)))
+                    }
+                } else {
+                    Some(Object::Error("Invalid variant name".to_string()))
+                }
+            },
             _ => unreachable!("[ERR] Only literal expression evaluation works."),
         }
     }
@@ -222,7 +259,66 @@ impl Evaluator {
             .collect::<Vec<Object>>();
 
         match self.eval_expression(function) {
-            Some(Object::Function(parameters, body, env)) => {
+            Some(Object::Union { type_name, variant, value: _ }) => {
+                // Find the type definition for this variant
+                let type_env = self.type_env.borrow();
+                let type_def = match type_env.get(&type_name) {
+                    Some(def) => def,
+                    None => return Object::Error(format!("Type {} not found", type_name)),
+                };
+
+                // Get the expected type for this variant
+                let expected_type = match type_def {
+                    Type::Union(variants) => {
+                        match variants.iter()
+                            .find(|(v, _)| v == &Token::Identifier(variant.clone())) {
+                                Some((_, t)) => t,
+                                None => return Object::Error(format!("Variant {} not found in type {}", variant, type_name)),
+                            }
+                    }
+                    _ => return Object::Error(format!("{} is not a union type", type_name)),
+                };
+
+                // If the variant has no inner type (None), it shouldn't accept arguments
+                if expected_type.is_none() {
+                    if !arguments.is_empty() {
+                        return Object::Error(format!(
+                            "Variant {} does not accept arguments",
+                            variant
+                        ));
+                    }
+                    return Object::Union {
+                        type_name,
+                        variant,
+                        value: Box::new(Object::Unit),
+                    };
+                }
+
+                // For variants with inner types, check argument count and type
+                if arguments.len() != 1 {
+                    return Object::Error(format!(
+                        "Expected 1 argument for variant constructor, got {}",
+                        arguments.len()
+                    ));
+                }
+
+                // Check if the argument matches the expected type
+                if let Some(expected_type) = expected_type {
+                    if !self.check_type_match(&arguments[0], expected_type) {
+                        return Object::Error(format!(
+                            "Type mismatch for variant {}: expected {:?}, got {:?}",
+                            variant, expected_type, arguments[0]
+                        ));
+                    }
+                }
+
+                Object::Union {
+                    type_name,
+                    variant,
+                    value: Box::new(arguments[0].clone()),
+                }
+            },
+            Some(Object::Function(parameters, body, env, type_env)) => {
                 if parameters.len() != arguments.len() {
                     return Object::Error(format!(
                         "Expected {} arguments, got {}",
@@ -242,9 +338,12 @@ impl Evaluator {
                 }
 
                 let current_env = Rc::clone(&self.env);
+                let current_type_env = Rc::clone(&self.type_env);
                 self.env = Rc::new(RefCell::new(inner_env));
+                self.type_env = type_env;
                 let object = self.eval_block(&body);
                 self.env = current_env;
+                self.type_env = current_type_env;
 
                 match object {
                     Some(Object::Return(value)) => *value,
@@ -269,43 +368,76 @@ impl Evaluator {
                 return Some(value);
             }
             
-            // Then check type environment
-            if let Some(type_def) = self.type_env.borrow().get(name) {
-                let result = match type_def {
-                    Type::Record(fields) => {
-                        // Convert fields to string pairs for TypeDefinition
-                        let type_fields = fields.iter()
-                            .filter_map(|(name, type_alias)| {
-                                if let Token::Identifier(field_name) = name {
-                                    Some((field_name.clone(), format!("{:?}", type_alias)))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
+            // Then check if this is a variant constructor
+            let type_info = self.type_env.borrow()
+                .iter()
+                .find(|(_, type_def)| {
+                    if let Type::Union(variants) = type_def {
+                        variants.iter().any(|(v, _)| v == identifier)
+                    } else {
+                        false
+                    }
+                })
+                .map(|(name, _)| name.clone());
 
-                        Object::TypeDefinition {
-                            name: name.clone(),
-                            fields: type_fields,
-                        }
-                    },
-                    Type::Union(variants) => {
-                        Object::TypeDefinition {
-                            name: name.clone(),
-                            fields: vec![], // Union types don't have fields
-                        }
-                    },
-                    Type::Alias(alias) => {
-                        Object::TypeDefinition {
-                            name: name.clone(),
-                            fields: vec![(String::from("type"), format!("{:?}", alias))],
-                        }
-                    },
-                };
-                return Some(result);
+            if let Some(type_name) = type_info {
+                // This is a variant constructor, return it as a union object
+                let variant_name = name.clone();
+                Some(Object::Union {
+                    type_name,
+                    variant: variant_name,
+                    value: Box::new(Object::Unit),
+                })
+            } else {
+                // Finally check type environment
+                if let Some(type_def) = self.type_env.borrow().get(name) {
+                    let result = match type_def {
+                        Type::Record(fields) => {
+                            // Convert fields to string pairs for TypeDefinition
+                            let type_fields = fields.iter()
+                                .filter_map(|(name, type_alias)| {
+                                    if let Token::Identifier(field_name) = name {
+                                        Some((field_name.clone(), format!("{:?}", type_alias)))
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+
+                            Object::TypeDefinition {
+                                name: name.clone(),
+                                inner: TypeDefinitionInner::Record(type_fields),
+                            }
+                        },
+                        Type::Union(variants) => {
+                            // Convert variants to string pairs for TypeDefinition
+                            let type_fields = variants.iter()
+                                .filter_map(|(variant, type_alias)| {
+                                    if let Token::Identifier(variant_name) = variant {
+                                        Some((variant_name.clone(), format!("{:?}", type_alias.as_ref().map_or(&Alias { name: TypeConstructor::BuiltIn(Constructor::Unit), parameters: vec![] }, |t| t))))
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+
+                            Object::TypeDefinition {
+                                name: name.clone(),
+                                inner: TypeDefinitionInner::Union(type_fields),
+                            }
+                        },
+                        Type::Alias(alias) => {
+                            Object::TypeDefinition {
+                                name: name.clone(),
+                                inner: TypeDefinitionInner::Alias(format!("{:?}", alias)),
+                            }
+                        },
+                    };
+                    return Some(result);
+                }
+
+                Some(Object::Error(format!("Undefined identifier: {}", name)))
             }
-
-            Some(Object::Error(format!("Undefined identifier: {}", name)))
         } else {
             Some(Object::Error("Invalid identifier".to_string()))
         }
@@ -352,44 +484,64 @@ impl Evaluator {
 
     fn check_type_match(&self, value: &Object, type_alias: &Alias) -> bool {
         match (value, &type_alias.name) {
+            // Built-in type matches
             (Object::Integer(_), TypeConstructor::BuiltIn(Constructor::Int)) => true,
             (Object::Float(_), TypeConstructor::BuiltIn(Constructor::Float)) => true,
             (Object::String(_), TypeConstructor::BuiltIn(Constructor::String)) => true,
             (Object::Boolean(_), TypeConstructor::BuiltIn(Constructor::Bool)) => true,
             (Object::List(_), TypeConstructor::BuiltIn(Constructor::List)) => true,
             (Object::Unit, TypeConstructor::BuiltIn(Constructor::Unit)) => true,
-            (Object::Tuple(elements), TypeConstructor::BuiltIn(Constructor::Tuple)) => {
-                if elements.len() != type_alias.parameters.len() {
-                    return false;
-                }
-                elements.iter().zip(type_alias.parameters.iter()).all(|(value, param_type)| {
+            
+            // Tuple type match
+            (Object::Tuple(elements), TypeConstructor::BuiltIn(Constructor::Tuple)) => 
+                elements.len() == type_alias.parameters.len() && 
+                elements.iter().zip(type_alias.parameters.iter()).all(|(value, param_type)| 
                     self.check_type_match(value, param_type)
-                })
-            },
-            (Object::ResultOk(inner), TypeConstructor::BuiltIn(Constructor::Result)) => {
-                if let Some(param_type) = type_alias.parameters.first() {
+                ),
+            
+            // Result type matches
+            (Object::ResultOk(inner), TypeConstructor::BuiltIn(Constructor::Result)) => 
+                type_alias.parameters.first().map_or(false, |param_type| 
                     self.check_type_match(inner, param_type)
-                } else {
-                    false
-                }
-            },
-            (Object::ResultErr(inner), TypeConstructor::BuiltIn(Constructor::Result)) => {
-                if let Some(param_type) = type_alias.parameters.get(1) {
+                ),
+            (Object::ResultErr(inner), TypeConstructor::BuiltIn(Constructor::Result)) => 
+                type_alias.parameters.get(1).map_or(false, |param_type| 
                     self.check_type_match(inner, param_type)
-                } else {
-                    false
-                }
-            },
-            (Object::OptionSome(inner), TypeConstructor::BuiltIn(Constructor::Option)) => {
-                if let Some(param_type) = type_alias.parameters.first() {
+                ),
+            
+            // Option type matches
+            (Object::OptionSome(inner), TypeConstructor::BuiltIn(Constructor::Option)) => 
+                type_alias.parameters.first().map_or(false, |param_type| 
                     self.check_type_match(inner, param_type)
-                } else {
-                    false
-                }
-            },
+                ),
             (Object::OptionNone, TypeConstructor::BuiltIn(Constructor::Option)) => true,
-            // Add more type checks as needed
-            _ => false,
+            
+            // Custom type matches
+            (value, TypeConstructor::Custom(name)) => 
+                if let Token::Identifier(ident) = name {
+                    self.type_env.borrow().get(ident).map_or(false, |type_def| 
+                        match type_def {
+                            Type::Alias(alias) => self.check_type_match(value, alias),
+                            Type::Record(fields) => 
+                                if let Object::Record { fields: value_fields, .. } = value {
+                                    fields.iter().all(|(field_name, field_type)| 
+                                        value_fields.iter()
+                                            .find(|(name, _)| name == field_name)
+                                            .map_or(false, |(_, val)| self.check_type_match(val, field_type))
+                                    )
+                                } else { false },
+                            Type::Union(variants) => 
+                                if let Object::Union { type_name, variant, value } = value {
+                                    type_name == ident && variants.iter()
+                                        .find(|(v, _)| v == &Token::Identifier(variant.clone()))
+                                        .map_or(false, |(_, variant_type)| 
+                                            variant_type.as_ref().map_or(true, |t| self.check_type_match(value, t))
+                                        )
+                                } else { false }
+                        }
+                    )
+                } else { false },
+            _ => false
         }
     }
 
@@ -746,7 +898,23 @@ impl Evaluator {
                 }
                 Some(Object::Error(format!("Field '{}' not found in record", field_name)))
             },
-            // Handle list methods
+            // Handle option methods
+            (Object::OptionSome(_), Token::Identifier(name)) => {
+                match name.as_str() {
+                    "unwrap" => Some(Object::BuiltinMethod {
+                        namespace: Namespace::Option,
+                        method: "unwrap".to_string(),
+                        receiver: Box::new(obj),
+                    }),
+                    _ => Some(Object::Error(format!("Unknown method '{}' for Option type", name))),
+                }
+            },
+            (Object::OptionNone, Token::Identifier(name)) => {
+                match name.as_str() {
+                    "unwrap" => Some(Object::Error("Cannot unwrap None".to_string())),
+                    _ => Some(Object::Error(format!("Unknown method '{}' for Option type", name))),
+                }
+            },
             (Object::List(_), Token::Identifier(name)) => {
                 match name.as_str() {
                     "map" | "filter" | "fold" | "flatten" => {
@@ -829,6 +997,7 @@ impl Evaluator {
             (Token::StringType, Token::FromBool) => Some(from_bool_builtin(args)),
             (Token::StringType, Token::Length) => Some(length_builtin(args)),
             (Token::StringType, Token::Split) => Some(split_builtin(args)),
+            (Token::Option, Token::Unwrap) => Some(unwrap_builtin(args)),
             _ => Some(Object::Error(format!(
                 "Unknown namespace/function combination: {:?}.{:?}",
                 namespace, function
@@ -1019,5 +1188,62 @@ mod tests {
             }
             _ => panic!("Expected error for non-integer end, got {:?}", result),
         }
+    }
+
+    #[test]
+    fn test_complex_type_aliases() {
+        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
+        
+        // Define type aliases
+        evaluator.eval_type(
+            &Token::Identifier("alive".to_string()),
+            &Type::Alias(Alias {
+                name: TypeConstructor::BuiltIn(Constructor::Bool),
+                parameters: vec![],
+            }),
+        );
+
+        evaluator.eval_type(
+            &Token::Identifier("tags".to_string()),
+            &Type::Alias(Alias {
+                name: TypeConstructor::BuiltIn(Constructor::List),
+                parameters: vec![Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Result),
+                    parameters: vec![
+                        Alias {
+                            name: TypeConstructor::BuiltIn(Constructor::Int),
+                            parameters: vec![],
+                        },
+                        Alias {
+                            name: TypeConstructor::BuiltIn(Constructor::String),
+                            parameters: vec![],
+                        },
+                    ],
+                }],
+            }),
+        );
+
+        // Test simple alias
+        assert!(evaluator.check_type_match(
+            &Object::Boolean(true),
+            &Alias {
+                name: TypeConstructor::Custom(Token::Identifier("alive".to_string())),
+                parameters: vec![],
+            }
+        ));
+
+        // Test complex nested alias
+        let complex_value = Object::List(vec![
+            Object::ResultOk(Box::new(Object::Integer(42))),
+            Object::ResultErr(Box::new(Object::String("error".to_string()))),
+        ]);
+
+        assert!(evaluator.check_type_match(
+            &complex_value,
+            &Alias {
+                name: TypeConstructor::Custom(Token::Identifier("tags".to_string())),
+                parameters: vec![],
+            }
+        ));
     }
 }

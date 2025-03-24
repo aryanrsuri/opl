@@ -37,6 +37,8 @@ pub enum Expression {
     // Result
     ResultOk(Box<Expression>),
     ResultErr(Box<Expression>),
+    // Union
+    Variant(Identifier, Option<Box<Expression>>),
     // Literals
     Literal(Literal),
     // Expression Variants
@@ -116,6 +118,7 @@ pub enum Constructor {
     HashMap,
     Unit,
     Tuple,
+    // Union, Records, and Aliases should be defined previously in a type statement
 }
 
 #[derive(PartialEq, Debug, Clone)]
