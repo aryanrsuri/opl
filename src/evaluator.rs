@@ -358,7 +358,28 @@ impl Evaluator {
             (Object::Boolean(_), TypeConstructor::BuiltIn(Constructor::Bool)) => true,
             (Object::List(_), TypeConstructor::BuiltIn(Constructor::List)) => true,
             (Object::Unit, TypeConstructor::BuiltIn(Constructor::Unit)) => true,
-            // Handle Option types
+            (Object::Tuple(elements), TypeConstructor::BuiltIn(Constructor::Tuple)) => {
+                if elements.len() != type_alias.parameters.len() {
+                    return false;
+                }
+                elements.iter().zip(type_alias.parameters.iter()).all(|(value, param_type)| {
+                    self.check_type_match(value, param_type)
+                })
+            },
+            (Object::ResultOk(inner), TypeConstructor::BuiltIn(Constructor::Result)) => {
+                if let Some(param_type) = type_alias.parameters.first() {
+                    self.check_type_match(inner, param_type)
+                } else {
+                    false
+                }
+            },
+            (Object::ResultErr(inner), TypeConstructor::BuiltIn(Constructor::Result)) => {
+                if let Some(param_type) = type_alias.parameters.get(1) {
+                    self.check_type_match(inner, param_type)
+                } else {
+                    false
+                }
+            },
             (Object::OptionSome(inner), TypeConstructor::BuiltIn(Constructor::Option)) => {
                 if let Some(param_type) = type_alias.parameters.first() {
                     self.check_type_match(inner, param_type)
@@ -374,6 +395,16 @@ impl Evaluator {
 
     fn eval_literal(&mut self, literal: &Literal) -> Option<Object> {
         match literal {
+            Literal::Tuple(elements) => {
+                let mut evaluated_elements = Vec::new();
+                for element in elements {
+                    match self.eval_expression(element) {
+                        Some(value) => evaluated_elements.push(value),
+                        None => return Some(Object::Error("Failed to evaluate tuple element".to_string())),
+                    }
+                }
+                Some(Object::Tuple(evaluated_elements))
+            },
             Literal::Record(fields) => {
                 // First, find the record type that matches these fields
                 let mut matching_type = None;
@@ -741,6 +772,20 @@ impl Evaluator {
                         Some(elements[index as usize].clone())
                     },
                     Err(_) => Some(Object::Error("Invalid list index".to_string())),
+                }
+            },
+            (Object::Tuple(elements), Token::IntegerLiteral(index_str)) => {
+                match index_str.parse::<i128>() {
+                    Ok(index) => {
+                        if index < 0 {
+                            return Some(Object::Error("Tuple index cannot be negative".to_string()));
+                        }
+                        if index >= elements.len() as i128 {
+                            return Some(Object::Error("Tuple index out of bounds".to_string()));
+                        }
+                        Some(elements[index as usize].clone())
+                    },
+                    Err(_) => Some(Object::Error("Invalid tuple index".to_string())),
                 }
             },
             // Handle string methods

@@ -16,6 +16,7 @@ pub enum Object {
         type_name: String,
         fields: Vec<(Identifier, Object)>,
     },
+    Tuple(Vec<Object>),
     TypeDefinition {
         name: String,
         fields: Vec<(String, String)>, // field_name -> type_name
@@ -67,6 +68,7 @@ impl fmt::Display for Object {
             Object::Error(ref value) => write!(f, "{}", value),
             Object::Builtin(ref value) => write!(f, "{:?}", value),
             Object::BuiltinMethod { namespace, method, .. } => write!(f, "{:?}.{}", namespace, method),
+            Object::Tuple(ref value) => write!(f, "({})", value.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")),
         }
     }
 }

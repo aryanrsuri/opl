@@ -25,7 +25,7 @@ pub enum Literal {
     List(Vec<Expression>),
     Record(Vec<(Identifier, Expression)>),
     HashMap(Vec<(Expression, Expression)>),
-    // TODO: Tuple, Map
+    Tuple(Vec<Expression>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -115,6 +115,7 @@ pub enum Constructor {
     Result,
     HashMap,
     Unit,
+    Tuple,
 }
 
 #[derive(PartialEq, Debug, Clone)]

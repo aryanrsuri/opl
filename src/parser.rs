@@ -318,12 +318,30 @@ impl Parser {
     }
 
     fn parse_grouped_expression(&mut self) -> Option<Expression> {
-        self.next_token();
+        self.next_token(); // consume left paren
         let expr = self.parse_expression(Precedence::Lowest)?;
-        if !self.expect_peek(Token::RightParen) {
-            return None;
+
+        // Check if this is a tuple by looking for a comma
+        if self.peek_token_is(Token::Comma) {
+            let mut elements = vec![expr];
+            while self.peek_token_is(Token::Comma) {
+                self.next_token(); // consume comma
+                self.next_token(); // consume next token
+                if let Some(elem) = self.parse_expression(Precedence::Lowest) {
+                    elements.push(elem);
+                }
+            }
+            if !self.expect_peek(Token::RightParen) {
+                return None;
+            }
+            Some(Expression::Literal(Literal::Tuple(elements)))
+        } else {
+            // Regular grouped expression
+            if !self.expect_peek(Token::RightParen) {
+                return None;
+            }
+            Some(expr)
         }
-        Some(expr)
     }
 
     fn parse_if_expression(&mut self) -> Option<Expression> {
@@ -723,87 +741,104 @@ impl Parser {
         Some(Type::Alias(type_ann))
     }
 
+    fn parse_composite_type(&mut self, constructor: Constructor) -> Option<Alias> {
+        if !self.expect_peek(Token::Product) {
+            self.errors.push(ParseError::Log(
+                "Expected * after type constructor".to_string()
+            ));
+            return None;
+        }
+        
+        if !self.expect_peek(Token::LeftParen) {
+            self.errors.push(ParseError::Log(
+                "Expected ( for type parameters".to_string()
+            ));
+            return None;
+        }
+
+        self.next_token();
+        
+        // Parse parameter types
+        let mut parameters = Vec::new();
+        
+        // Parse first type
+        let first_type = self.parse_type_annotation()?;
+        parameters.push(first_type);
+        
+        // Expect comma
+        if !self.expect_peek(Token::Comma) {
+            self.errors.push(ParseError::Log(
+                "Expected , between type parameters".to_string()
+            ));
+            return None;
+        }
+        
+        self.next_token();
+        // Parse second type
+        let second_type = self.parse_type_annotation()?;
+        parameters.push(second_type);
+        
+        // Expect right parenthesis
+        if !self.expect_peek(Token::RightParen) {
+            self.errors.push(ParseError::Log(
+                "Expected ) after type parameters".to_string()
+            ));
+            return None;
+        }
+        
+        Some(Alias {
+            name: TypeConstructor::BuiltIn(constructor),
+            parameters,
+        })
+    }
+
     fn parse_type_annotation(&mut self) -> Option<Alias> {
         match &self.curr {
             // Handle type variables
             // Handle lowercase primitive types
-            Token::IntType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Int),
-                parameters: Vec::new(),
-            }),
-            Token::FloatType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Float),
-                parameters: Vec::new(),
-            }),
-            Token::StringType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::String),
-                parameters: Vec::new(),
-            }),
-            Token::CharType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Char),
-                parameters: Vec::new(),
-            }),
-            Token::BoolType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Bool),
-                parameters: Vec::new(),
-            }),
-            Token::UnitType => Some(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Unit),
-                parameters: Vec::new(),
-            }),
-            // Handle result type with tuple parameters
-            Token::Result | Token::HashMap => {
-                let constructor = match &self.curr {
-                    Token::Result => Constructor::Result,
-                    Token::HashMap => Constructor::HashMap,
-                    _ => unreachable!(),
-                };
-                // Expect * after result
-                if !self.expect_peek(Token::Product) {
-                    self.errors.push(ParseError::Log(
-                        "Expected * after result type".to_string()
-                    ));
-                    return None;
-                }
-                
-                // Expect left parenthesis for tuple
-                if !self.expect_peek(Token::LeftParen) {
-                    self.errors.push(ParseError::Log(
-                        "Expected ( for result type parameters".to_string()
-                    ));
-                    return None;
-                }
-                
-                self.next_token(); // move past (
-                
-                // Parse first type parameter
-                let first_param = self.parse_type_annotation()?;
-                
-                // Expect comma between parameters
-                if !self.expect_peek(Token::Comma) {
-                    self.errors.push(ParseError::Log(
-                        "Expected , between result type parameters".to_string()
-                    ));
-                    return None;
-                }
-                
-                self.next_token(); // move past ,
-                
-                // Parse second type parameter
-                let second_param = self.parse_type_annotation()?;
-                
-                // Expect right parenthesis
-                if !self.expect_peek(Token::RightParen) {
-                    self.errors.push(ParseError::Log(
-                        "Expected ) after result type parameters".to_string()
-                    ));
-                    return None;
-                }
-                
+            Token::IntType => {
                 Some(Alias {
-                    name: TypeConstructor::BuiltIn(constructor),
-                    parameters: vec![first_param, second_param],
+                    name: TypeConstructor::BuiltIn(Constructor::Int),
+                    parameters: Vec::new(),
                 })
+            },
+            Token::FloatType => {
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Float),
+                    parameters: Vec::new(),
+                })
+            },
+            Token::StringType => {
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::String),
+                    parameters: Vec::new(),
+                })
+            },
+            Token::CharType => {
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Char),
+                    parameters: Vec::new(),
+                })
+            },
+            Token::BoolType => {
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Bool),
+                    parameters: Vec::new(),
+                })
+            },
+            Token::UnitType => {
+                Some(Alias {
+                    name: TypeConstructor::BuiltIn(Constructor::Unit),
+                    parameters: Vec::new(),
+                })
+            },
+            // Handle tuple type
+            Token::Tuple => {
+                self.parse_composite_type(Constructor::Tuple)
+            },
+            // Handle result type
+            Token::Result => {
+                self.parse_composite_type(Constructor::Result)
             },
             // Handle product types for list, and option
             Token::List | Token::Option => {

@@ -5,9 +5,12 @@
     - [ ] Type inference for functions
     - [ ] Type inference for records and unions
     - [ ] Type checking at compile time
-- [ ] (!!!!) Tuple
-    - [ ] parse
-    - [ ] eval
+    - [x] Type annotation for composite types: result and tuple  OF 2 PARAMETERS ONLY 
+- [ ] (bug) Allow parse_composite_types for tuples of n-length
+- [ ] Pipe operator
+- [x] (!!!!) Tuple
+    - [x] parse
+    - [x] eval
     - [ ] operations
 - [x] String Concatenation `++`
 - [ ] Builtin/Std library
@@ -26,7 +29,7 @@
     - [x] List Concatenation `++`
     - [x] Indexes of Lists
     - [ ] List slicing (e.g., [1..10].slice(2, 5))
-    - [ ] List comprehension syntax 
+    - [ ] (!!!) List comprehension syntax 
 - [ ] Char type
 - [ ] Match Statement
     - [ ] Pattern matches
