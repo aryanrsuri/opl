@@ -1,4 +1,5 @@
 ## Todo
+- [ ] (bug) !!!!! Union/Variants are cooked, we need to rewrite them
 - [ ] (epic) Add static and inferred types to objects and ast
     - [ ] (!!!!!) Static types for let expression
     - [ ] Type inference for expressions
@@ -6,7 +7,7 @@
     - [ ] Type inference for records and unions
     - [ ] Type checking at compile time
     - [x] Type annotation for composite types: result and tuple  OF 2 PARAMETERS ONLY 
-- [ ] (bug) Allow parse_composite_types for tuples of n-length
+- [x] (bug) Allow parse_composite_types for tuples of n-length
 - [ ] Pipe operator
 - [x] (!!!!) Tuple
     - [x] parse
