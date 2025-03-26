@@ -168,4 +168,5 @@ pub enum Namespace {
     Option, // Option operations
     Result, // Result operations
     String, // String operations
+    Union,  // Union operations (is_variant, etc)
 }

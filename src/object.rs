@@ -5,11 +5,12 @@ use std::fmt;
 use std::rc::Rc;
 use std::collections::HashMap;
 use crate::ast::Type;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum TypeDefinitionInner {
-    Record(Vec<(String, String)>), // field_name -> type_name
-    Union(Vec<(String, String)>),  // variant_name -> type_name
-    Alias(String),                 // type_name
+    Record(Vec<(String, Type)>),             // field_name -> type
+    Union(Vec<(String, Option<Type>)>),      // variant_name -> optional associated type
+    Alias(Type),                             // type alias
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -27,7 +28,7 @@ pub enum Object {
     Union {
         type_name: String,
         variant: String,
-        value: Box<Object>,
+        value: Option<Box<Object>>,          // Optional value for variant
     },
     Tuple(Vec<Object>),
     TypeDefinition {
@@ -76,19 +77,24 @@ impl fmt::Display for Object {
                             write!(f, "type {} = {{}}", name)
                         } else {
                             write!(f, "type {} = {{ {} }}", name, fields.iter()
-                                .map(|(field_name, type_name)| format!("{}: {}", field_name, type_name))
+                                .map(|(field_name, field_type)| format!("{}: {:?}", field_name, field_type))
                                 .collect::<Vec<String>>()
                                 .join(", "))
                         }
                     },
                     TypeDefinitionInner::Union(variants) => {
                         write!(f, "type {} = {}", name, variants.iter()
-                            .map(|(_, type_name)| type_name.as_str())
+                            .map(|(variant_name, opt_type)| {
+                                match opt_type {
+                                    Some(t) => format!("{} of {:?}", variant_name, t),
+                                    None => format!("{}", variant_name)
+                                }
+                            })
                             .collect::<Vec<_>>()
                             .join(" | "))
                     },
-                    TypeDefinitionInner::Alias(type_name) => {
-                        write!(f, "type {} = {}", name, type_name)
+                    TypeDefinitionInner::Alias(typ) => {
+                        write!(f, "type {} = {:?}", name, typ)
                     }
                 }
             },
@@ -99,7 +105,12 @@ impl fmt::Display for Object {
             Object::Builtin(ref value) => write!(f, "{:?}", value),
             Object::BuiltinMethod { namespace, method, .. } => write!(f, "{:?}.{}", namespace, method),
             Object::Tuple(elements) => write!(f, "({})", elements.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")),
-            Object::Union { type_name: _, variant, value } => write!(f, "{}({})",variant, value),
+            Object::Union { type_name, variant, value } => {
+                match value {
+                    Some(val) => write!(f, "{}({})", variant, val),
+                    None => write!(f, "{}: {}", type_name, variant)
+                }
+            },
         }
     }
 }

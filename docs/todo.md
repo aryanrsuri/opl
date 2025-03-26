@@ -1,5 +1,7 @@
 ## Todo
-- [ ] (bug) !!!!! Union/Variants are cooked, we need to rewrite them
+- [~] (bug) !!!!! Union/Variants are cooked, we need to rewrite them
+    - N: With help of claude 3.7, they are way less cook, unions know their variants and vice versa
+    - [x] Variant value and type equality evaluation
 - [ ] (epic) Add static and inferred types to objects and ast
     - [ ] (!!!!!) Static types for let expression
     - [ ] Type inference for expressions
@@ -14,16 +16,18 @@
     - [x] eval
     - [ ] operations
 - [x] String Concatenation `++`
+
 - [ ] Builtin/Std library
     - [x] println
     - [x] map
-    - [x] fold,
+    - [x] fold
     - [x] filter
     - [x] flatten
     - [x] flatmap
     - [ ] More list operations (head, tail, last)
     - [ ] More string operations (substring, replace, join)
     - [ ] Math operations (min, max, sum, product)
+    - [x] Union builtins: variant_of, type_of, value_of, etc
 - [ ] List Evaluation
     - [x] Declaration
     - [x] List building using _over_ operator `..` 

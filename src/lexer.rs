@@ -100,14 +100,22 @@ pub enum Token {
     // String
     Length, // length : string -> int
     Split, // split : string -> string -> [string]
+    Trim, // trim : string -> string
     FromInt, // from_int : int -> string
     FromFloat, // from_float : float -> string
     FromBool, // from_bool : bool -> string
 
     // Option
     Unwrap, // unwrap : option a -> a
+    IsSome, // is_some : option a -> bool
+    IsNone, // is_none : option a -> bool
 
-
+    // Union
+    IsVariant,   // is_variant : union -> string -> bool
+    VariantName, // variant_name : union -> string
+    HasValue,    // has_value : union -> bool
+    ValueOf,     // value_of : union -> a
+    TypeOf,      // type_of : union -> string
 }
 
 #[derive(Debug)]
@@ -249,23 +257,31 @@ impl Lexer {
             "with" => Token::With,
             "of" => Token::Of,
             "raise" => Token::Raise,
+            "union" => Token::Union,
+            "record" => Token::Record,
+            "Ok" => Token::Ok,
+            "Err" => Token::Err,
+            "Some" => Token::Some,
+            "None" => Token::None,
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
+            
+            // Type names
             "int" => Token::IntType,
             "float" => Token::FloatType,
             "string" => Token::StringType,
             "char" => Token::CharType,
             "bool" => Token::BoolType,
             "unit" => Token::UnitType,
+            
+            // Collection names
             "list" => Token::List,
+            "tuple" => Token::Tuple,
             "option" => Token::Option,
             "result" => Token::Result,
             "hashmap" => Token::HashMap,
-            "tuple" => Token::Tuple,
-            "Ok" => Token::Ok,
-            "Err" => Token::Err,
-            "Some" => Token::Some,
-            "None" => Token::None,
+            
+            // Builtin function names
             "map" => Token::Map,
             "filter" => Token::Filter,
             "fold" => Token::Fold,
@@ -274,10 +290,21 @@ impl Lexer {
             "println" => Token::Println,
             "length" => Token::Length,
             "split" => Token::Split,
+            "trim" => Token::Trim,
             "from_int" => Token::FromInt,
             "from_float" => Token::FromFloat,
             "from_bool" => Token::FromBool,
             "unwrap" => Token::Unwrap,
+            "is_some" => Token::IsSome,
+            "is_none" => Token::IsNone,
+            
+            // Union functions
+            "is_variant" => Token::IsVariant,
+            "variant_name" => Token::VariantName,
+            "has_value" => Token::HasValue,
+            "value_of" => Token::ValueOf,
+            "type_of" => Token::TypeOf,
+            
             _ => Token::Identifier(literal),
         };
     }

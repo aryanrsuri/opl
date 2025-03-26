@@ -218,7 +218,7 @@ impl Parser {
                 Expression::Prefix(prefix, Box::new(expr))
             },
             // Add string namespace, such as string.from_int, string.from_float, string.from_bool, string.length
-            Token::Std | Token::List | Token::StringType | Token::Option => {
+            Token::Std | Token::List | Token::StringType | Token::Option | Token::Union => {
                 let namespace = self.curr.clone();
                 if !self.expect_peek(Token::Period) {
                     return None;

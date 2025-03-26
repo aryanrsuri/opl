@@ -63,3 +63,14 @@ pub fn split_builtin(args: Vec<Object>) -> Object {
     }
 }
 
+
+pub fn string_trim(args: Vec<Object>) -> Object {
+    if args.len() != 1 {
+        return Object::Error("trim takes no arguments".to_string());
+    }
+
+    match &args[0] {
+        Object::String(s) => Object::String(s.trim().to_string()),
+    _ => Object::Error("trim can only be called on strings".to_string()),
+}
+}

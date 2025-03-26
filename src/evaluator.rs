@@ -5,8 +5,9 @@ use crate::lexer::Token;
 use crate::object::{Object, TypeDefinitionInner};
 use crate::builtin::list::{map_builtin, fold_builtin, filter_builtin, flatten_builtin, flatmap_builtin};
 use crate::builtin::std::println_builtin;
-use crate::builtin::string::{from_int_builtin, from_float_builtin, from_bool_builtin, length_builtin, split_builtin};
+use crate::builtin::string::{from_int_builtin, from_float_builtin, from_bool_builtin, length_builtin, split_builtin, string_trim};
 use crate::builtin::option::unwrap_builtin;
+use crate::builtin::union::{is_variant_builtin, variant_name_builtin, has_value_builtin, value_of_builtin, type_of_builtin};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -158,45 +159,20 @@ impl Evaluator {
                     None
                 }
             }
-            Expression::DotAccess { object, property } => self.eval_dot_access(object, property),
+            Expression::DotAccess { object, property } => {
+                match self.eval_dot_access(object, property) {
+                    Some(Object::Error(msg)) => Some(Object::Error(msg)),
+                    Some(obj) => Some(obj),
+                    None => None,
+                }
+            },
             Expression::NamespacedCall { namespace, function, arguments } => {
                 self.eval_namespaced_call(namespace, function, arguments)
             },
             Expression::OptionSome(expression) => self.eval_option_some(expression),
             Expression::ResultOk(expression) => self.eval_result_ok(expression),
             Expression::ResultErr(expression) => self.eval_result_err(expression),
-            Expression::Variant(variant, value) => {
-                if let Token::Identifier(variant_name) = variant {
-                    // Find the type definition for this variant
-                    let type_name = self.type_env.borrow()
-                        .iter()
-                        .find(|(_, type_def)| {
-                            if let Type::Union(variants) = type_def {
-                                variants.iter().any(|(v, _)| v == variant)
-                            } else {
-                                false
-                            }
-                        })
-                        .map(|(name, _)| name.clone());
-
-                    if let Some(type_name) = type_name {
-                        let value = value.as_ref()
-                            .map(|expr| self.eval_expression(expr))
-                            .flatten()
-                            .unwrap_or(Object::Unit);
-
-                        Some(Object::Union {
-                            type_name,
-                            variant: variant_name.clone(),
-                            value: Box::new(value),
-                        })
-                    } else {
-                        Some(Object::Error(format!("Unknown variant: {}", variant_name)))
-                    }
-                } else {
-                    Some(Object::Error("Invalid variant name".to_string()))
-                }
-            },
+            Expression::Variant(variant, value) => self.eval_variant(variant, value),
             _ => unreachable!("[ERR] Only literal expression evaluation works."),
         }
     }
@@ -272,7 +248,7 @@ impl Evaluator {
                     Type::Union(variants) => {
                         match variants.iter()
                             .find(|(v, _)| v == &Token::Identifier(variant.clone())) {
-                                Some((_, t)) => t,
+                                Some((_, t)) => t.clone(),
                                 None => return Object::Error(format!("Variant {} not found in type {}", variant, type_name)),
                             }
                     }
@@ -290,7 +266,7 @@ impl Evaluator {
                     return Object::Union {
                         type_name,
                         variant,
-                        value: Box::new(Object::Unit),
+                        value: None,
                     };
                 }
 
@@ -303,11 +279,11 @@ impl Evaluator {
                 }
 
                 // Check if the argument matches the expected type
-                if let Some(expected_type) = expected_type {
-                    if !self.check_type_match(&arguments[0], expected_type) {
+                if let Some(expected_alias) = &expected_type {
+                    if !self.check_type_match(&arguments[0], expected_alias) {
                         return Object::Error(format!(
                             "Type mismatch for variant {}: expected {:?}, got {:?}",
-                            variant, expected_type, arguments[0]
+                            variant, expected_alias, arguments[0]
                         ));
                     }
                 }
@@ -315,7 +291,7 @@ impl Evaluator {
                 Object::Union {
                     type_name,
                     variant,
-                    value: Box::new(arguments[0].clone()),
+                    value: Some(Box::new(arguments[0].clone())),
                 }
             },
             Some(Object::Function(parameters, body, env, type_env)) => {
@@ -378,26 +354,30 @@ impl Evaluator {
                         false
                     }
                 })
-                .map(|(name, _)| name.clone());
+                .map(|(name, type_def)| (name.clone(), type_def.clone()));
 
-            if let Some(type_name) = type_info {
-                // This is a variant constructor, return it as a union object
-                let variant_name = name.clone();
-                Some(Object::Union {
-                    type_name,
-                    variant: variant_name,
-                    value: Box::new(Object::Unit),
-                })
+            if let Some((type_name, type_def)) = type_info {
+                // Get variant type to determine if it requires an argument
+                if let Type::Union(variants) = type_def {
+                    let variant_name = name.clone();
+                    Some(Object::Union {
+                        type_name,
+                        variant: variant_name,
+                        value: None, // Value will be provided if called with arguments
+                    })
+                } else {
+                    None
+                }
             } else {
-                // Finally check type environment
+                // Finally check type environment for type definitions
                 if let Some(type_def) = self.type_env.borrow().get(name) {
                     let result = match type_def {
                         Type::Record(fields) => {
-                            // Convert fields to string pairs for TypeDefinition
+                            // We need to convert (Identifier, Alias) to (String, Type)
                             let type_fields = fields.iter()
-                                .filter_map(|(name, type_alias)| {
+                                .filter_map(|(name, alias)| {
                                     if let Token::Identifier(field_name) = name {
-                                        Some((field_name.clone(), format!("{:?}", type_alias)))
+                                        Some((field_name.clone(), Type::Alias(alias.clone())))
                                     } else {
                                         None
                                     }
@@ -410,11 +390,13 @@ impl Evaluator {
                             }
                         },
                         Type::Union(variants) => {
-                            // Convert variants to string pairs for TypeDefinition
-                            let type_fields = variants.iter()
-                                .filter_map(|(variant, type_alias)| {
+                            // We need to convert (Identifier, Option<Alias>) to (String, Option<Type>)
+                            let type_variants = variants.iter()
+                                .filter_map(|(variant, opt_alias)| {
                                     if let Token::Identifier(variant_name) = variant {
-                                        Some((variant_name.clone(), format!("{:?}", type_alias.as_ref().map_or(&Alias { name: TypeConstructor::BuiltIn(Constructor::Unit), parameters: vec![] }, |t| t))))
+                                        let opt_type = opt_alias.as_ref()
+                                            .map(|alias| Type::Alias(alias.clone()));
+                                        Some((variant_name.clone(), opt_type))
                                     } else {
                                         None
                                     }
@@ -423,23 +405,23 @@ impl Evaluator {
 
                             Object::TypeDefinition {
                                 name: name.clone(),
-                                inner: TypeDefinitionInner::Union(type_fields),
+                                inner: TypeDefinitionInner::Union(type_variants),
                             }
                         },
                         Type::Alias(alias) => {
                             Object::TypeDefinition {
                                 name: name.clone(),
-                                inner: TypeDefinitionInner::Alias(format!("{:?}", alias)),
+                                inner: TypeDefinitionInner::Alias(Type::Alias(alias.clone())),
                             }
                         },
                     };
-                    return Some(result);
+                    Some(result)
+                } else {
+                    None
                 }
-
-                Some(Object::Error(format!("Undefined identifier: {}", name)))
             }
         } else {
-            Some(Object::Error("Invalid identifier".to_string()))
+            None
         }
     }
 
@@ -509,7 +491,6 @@ impl Evaluator {
                     self.check_type_match(inner, param_type)
                 ),
             
-            // Option type matches
             (Object::OptionSome(inner), TypeConstructor::BuiltIn(Constructor::Option)) => 
                 type_alias.parameters.first().map_or(false, |param_type| 
                     self.check_type_match(inner, param_type)
@@ -535,7 +516,11 @@ impl Evaluator {
                                     type_name == ident && variants.iter()
                                         .find(|(v, _)| v == &Token::Identifier(variant.clone()))
                                         .map_or(false, |(_, variant_type)| 
-                                            variant_type.as_ref().map_or(true, |t| self.check_type_match(value, t))
+                                            match (variant_type, value) {
+                                                (None, None) => true, // Empty variant
+                                                (Some(t), Some(box_val)) => self.check_type_match(box_val, t),
+                                                _ => false  // Mismatch between expected and actual value
+                                            }
                                         )
                                 } else { false }
                         }
@@ -771,6 +756,41 @@ impl Evaluator {
                     )))
                 }
             }
+            Object::Union { type_name: left_type, variant: left_variant, value: left_value } => {
+                match infix {
+                    Infix::Equal | Infix::DoesNotEqual => {
+                        match right {
+                            // Full comparison of union values
+                            Object::Union { type_name: right_type, variant: right_variant, value: right_value } => {
+                                let variant_eq = left_variant == right_variant && left_type == right_type;
+                                
+                                // If variant names match, check values if they exist
+                                let values_eq = match (left_value, right_value) {
+                                    (Some(left_val), Some(right_val)) => *left_val == *right_val,
+                                    (None, None) => true,
+                                    _ => false
+                                };
+                                
+                                let result = variant_eq && values_eq;
+                                if matches!(infix, Infix::DoesNotEqual) {
+                                    Object::Boolean(!result)
+                                } else {
+                                    Object::Boolean(result)
+                                }
+                            },
+                            // Simple variant constructor on right side (no value)
+                            _ => Object::Error(format!(
+                                "Type mismatch for union comparison: expected union type, got {:?}",
+                                std::mem::discriminant(&right)
+                            ))
+                        }
+                    },
+                    _ => Object::Error(format!(
+                        "Invalid operator {:?} for union type",
+                        infix
+                    ))
+                }
+            },
             _ => Object::Error(String::from(format!(
                 "Type Mismatch for infix: {:?} infix {:?} -> {:?}",
                 std::mem::discriminant(&left), infix, std::mem::discriminant(&right)
@@ -883,11 +903,9 @@ impl Evaluator {
         }
     }
 
-    fn eval_dot_access(&mut self, object: &Expression, property: &Identifier) -> Option<Object> {
+    fn eval_dot_access(&mut self, object: &Expression, property: &Token) -> Option<Object> {
         let obj = self.eval_expression(object)?;
-        
         match (&obj, property) {
-            // Handle record field access
             (Object::Record { fields, .. }, Token::Identifier(field_name)) => {
                 for (name, value) in fields {
                     if let Token::Identifier(n) = name {
@@ -897,35 +915,6 @@ impl Evaluator {
                     }
                 }
                 Some(Object::Error(format!("Field '{}' not found in record", field_name)))
-            },
-            // Handle option methods
-            (Object::OptionSome(_), Token::Identifier(name)) => {
-                match name.as_str() {
-                    "unwrap" => Some(Object::BuiltinMethod {
-                        namespace: Namespace::Option,
-                        method: "unwrap".to_string(),
-                        receiver: Box::new(obj),
-                    }),
-                    _ => Some(Object::Error(format!("Unknown method '{}' for Option type", name))),
-                }
-            },
-            (Object::OptionNone, Token::Identifier(name)) => {
-                match name.as_str() {
-                    "unwrap" => Some(Object::Error("Cannot unwrap None".to_string())),
-                    _ => Some(Object::Error(format!("Unknown method '{}' for Option type", name))),
-                }
-            },
-            (Object::List(_), Token::Identifier(name)) => {
-                match name.as_str() {
-                    "map" | "filter" | "fold" | "flatten" => {
-                        Some(Object::BuiltinMethod {
-                            namespace: Namespace::List,
-                            method: name.clone(),
-                            receiver: Box::new(obj),
-                        })
-                    },
-                    _ => Some(Object::Error(format!("Unknown method '{}' for List type", name))),
-                }
             },
             // Handle list indexing
             (Object::List(elements), Token::IntegerLiteral(index_str)) => {
@@ -956,35 +945,19 @@ impl Evaluator {
                     Err(_) => Some(Object::Error("Invalid tuple index".to_string())),
                 }
             },
-            // Handle string methods
-            (Object::String(_), Token::Identifier(name)) => {
-                match name.as_str() {
-                    "length" | "split" | "trim" => {
-                        Some(Object::BuiltinMethod {
-                            namespace: Namespace::String,
-                            method: name.clone(),
-                            receiver: Box::new(obj),
-                        })
-                    },
-                    _ => Some(Object::Error(format!("Unknown method '{}' for String type", name))),
-                }
-            },
-            _ => Some(Object::Error(format!(
-                "Type {:?} does not support field access or method calls",
-                std::mem::discriminant(&obj)
-            ))),
+            _ => Some(Object::Error(format!("Type {:?} does not support field access or method calls", std::mem::discriminant(&obj)))),
         }
     }
 
     fn eval_namespaced_call(&mut self, namespace: &Identifier, function: &Identifier, arguments: &Vec<Expression>) -> Option<Object> {
-        let args: Vec<Object> = arguments
+        let args = arguments
             .iter()
-            .map(|arg| {
-                self.eval_expression(arg)
-                    .unwrap_or(Object::Error("Failed to evaluate argument".to_string()))
-            })
-            .collect();
+            .map(|arg| self.eval_expression(arg))
+            .collect::<Vec<_>>();
 
+        let args: Vec<Object> = args.into_iter().filter_map(|arg| arg).collect();
+
+        // Call the appropriate builtin function based on namespace and function name
         match (namespace, function) {
             (Token::Std, Token::Println) => Some(println_builtin(args)),
             (Token::List, Token::Map) => Some(map_builtin(args)),
@@ -997,9 +970,17 @@ impl Evaluator {
             (Token::StringType, Token::FromBool) => Some(from_bool_builtin(args)),
             (Token::StringType, Token::Length) => Some(length_builtin(args)),
             (Token::StringType, Token::Split) => Some(split_builtin(args)),
+            (Token::StringType, Token::Trim) => Some(string_trim(args)),
             (Token::Option, Token::Unwrap) => Some(unwrap_builtin(args)),
+            // (Token::Option, Token::IsSome) => Some(is_some_builtin(args)),
+            // (Token::Option, Token::IsNone) => Some(is_none_builtin(args)),
+            (Token::Union, Token::IsVariant) => Some(is_variant_builtin(args)),
+            (Token::Union, Token::VariantName) => Some(variant_name_builtin(args)),
+            (Token::Union, Token::HasValue) => Some(has_value_builtin(args)),
+            (Token::Union, Token::ValueOf) => Some(value_of_builtin(args)),
+            (Token::Union, Token::TypeOf) => Some(type_of_builtin(args)),
             _ => Some(Object::Error(format!(
-                "Unknown namespace/function combination: {:?}.{:?}",
+                "Unknown namespaced function: {}::{}",
                 namespace, function
             ))),
         }
@@ -1041,10 +1022,18 @@ impl Evaluator {
                         _ => Object::Error(format!("Unknown list method '{}'", method)),
                     },
                     Namespace::String => match method.as_str() {
-                        "length" => self.eval_string_length(all_args),
-                        "split" => self.eval_string_split(all_args),
-                        "trim" => self.eval_string_trim(all_args),
+                        "length" => length_builtin(all_args),
+                        "split" => split_builtin(all_args),
+                        "trim" => string_trim(all_args),
                         _ => Object::Error(format!("Unknown string method '{}'", method)),
+                    },
+                    Namespace::Union => match method.as_str() {
+                        "is_variant" => is_variant_builtin(all_args),
+                        "variant_name" => variant_name_builtin(all_args),
+                        "has_value" => has_value_builtin(all_args),
+                        "value_of" => value_of_builtin(all_args),
+                        "type_of" => type_of_builtin(all_args),
+                        _ => Object::Error(format!("Unknown union method '{}'", method)),
                     },
                     _ => Object::Error("Unsupported namespace for method calls".to_string()),
                 }
@@ -1053,42 +1042,90 @@ impl Evaluator {
         }
     }
 
-    // Add string method implementations
-    fn eval_string_length(&mut self, args: Vec<Object>) -> Object {
-        if args.len() != 1 {
-            return Object::Error("length takes no arguments".to_string());
-        }
 
-        match &args[0] {
-            Object::String(s) => Object::Integer(s.len() as i128),
-            _ => Object::Error("length can only be called on strings".to_string()),
-        }
-    }
 
-    fn eval_string_split(&mut self, args: Vec<Object>) -> Object {
-        if args.len() != 2 {
-            return Object::Error("split takes exactly one argument".to_string());
-        }
+    fn eval_variant(&mut self, variant: &Identifier, value_expr: &Option<Box<Expression>>) -> Option<Object> {
+        if let Token::Identifier(variant_name) = variant {
+            // Find which union type this variant belongs to
+            let type_info = self.type_env.borrow()
+                .iter()
+                .find(|(_, type_def)| {
+                    if let Type::Union(variants) = type_def {
+                        variants.iter().any(|(v, _)| v == variant)
+                    } else {
+                        false
+                    }
+                })
+                .map(|(name, type_def)| (name.clone(), type_def.clone()));
 
-        match (&args[0], &args[1]) {
-            (Object::String(s), Object::String(delimiter)) => {
-                let parts: Vec<Object> = s.split(delimiter)
-                    .map(|part| Object::String(part.to_string()))
-                    .collect();
-                Object::List(parts)
-            },
-            _ => Object::Error("split arguments must be strings".to_string()),
-        }
-    }
-
-    fn eval_string_trim(&mut self, args: Vec<Object>) -> Object {
-        if args.len() != 1 {
-            return Object::Error("trim takes no arguments".to_string());
-        }
-
-        match &args[0] {
-            Object::String(s) => Object::String(s.trim().to_string()),
-            _ => Object::Error("trim can only be called on strings".to_string()),
+            if let Some((type_name, type_def)) = type_info {
+                // Get the expected type for this variant
+                if let Type::Union(variants) = type_def {
+                    let variant_type = variants.iter()
+                        .find(|(v, _)| v == variant)
+                        .map(|(_, t)| t.clone());
+                    
+                    // Process value based on variant type
+                    match (variant_type, value_expr) {
+                        // No type expected, no value provided - correct
+                        (None, None) => {
+                            return Some(Object::Union {
+                                type_name,
+                                variant: variant_name.clone(),
+                                value: None,
+                            });
+                        },
+                        // Type expected, value provided - check and wrap
+                        (Some(Some(expected_alias)), Some(expr)) => {
+                            let value = self.eval_expression(expr);
+                            if let Some(evaluated_value) = value {
+                                // Check if value matches expected type
+                                if !self.check_type_match(&evaluated_value, &expected_alias) {
+                                    return Some(Object::Error(format!(
+                                        "Type mismatch for variant {}: expected {:?}, got {:?}",
+                                        variant_name, expected_alias, evaluated_value
+                                    )));
+                                }
+                                return Some(Object::Union {
+                                    type_name,
+                                    variant: variant_name.clone(),
+                                    value: Some(Box::new(evaluated_value)),
+                                });
+                            } else {
+                                return Some(Object::Error(format!(
+                                    "Failed to evaluate value for variant {}",
+                                    variant_name
+                                )));
+                            }
+                        },
+                        // Type expected but no value provided
+                        (Some(Some(_)), None) => {
+                            return Some(Object::Error(format!(
+                                "Variant {} requires a value but none was provided",
+                                variant_name
+                            )));
+                        },
+                        // No type expected but value provided
+                        (None, Some(_)) => {
+                            return Some(Object::Error(format!(
+                                "Variant {} does not accept a value",
+                                variant_name
+                            )));
+                        },
+                        _ => {
+                            // Handle other cases
+                            return Some(Object::Error(format!(
+                                "Invalid variant type or value for variant {}",
+                                variant_name
+                            )));
+                        }
+                    }
+                }
+            }
+            
+            Some(Object::Error(format!("Unknown variant: {}", variant_name)))
+        } else {
+            Some(Object::Error("Invalid variant name".to_string()))
         }
     }
 }
