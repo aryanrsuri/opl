@@ -128,6 +128,14 @@ impl Parser {
             None => return None,
         };
 
+        let type_annotation = if self.peek_token_is(Token::Colon) {
+            self.next_token();
+            self.next_token();
+            self.parse_type_annotation()
+        } else {
+            return None;
+        };
+         
         if !self.expect_peek(Token::Assign) {
             return None;
         }
@@ -142,7 +150,7 @@ impl Parser {
             self.next_token();
         }
 
-        Some(Statement::Let(ident, expr))
+        Some(Statement::Let(ident, expr, type_annotation))
     }
 
     fn parse_identifier(&self) -> Option<Identifier> {

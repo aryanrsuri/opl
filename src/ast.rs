@@ -6,7 +6,7 @@ pub type Identifier = Token;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
-    Let(Identifier, Expression),
+    Let(Identifier, Expression, Option<Alias>),
     Return(Expression),
     Comment(Identifier),
     Expression(Expression),

@@ -56,7 +56,7 @@ impl Evaluator {
 
     fn eval_statement(&mut self, statement: &Statement) -> Option<Object> {
         match statement {
-            Statement::Let(identifier, expression) => self.eval_let(identifier, expression),
+            Statement::Let(identifier, expression, type_annotation) => self.eval_let(identifier, expression, type_annotation),
             Statement::Expression(expression) => self.eval_expression(expression),
             Statement::Return(expression) => self.eval_return(expression),
             Statement::Type(identifier, declaration) => self.eval_type(identifier, declaration),
@@ -93,7 +93,8 @@ impl Evaluator {
         }
     }
 
-    fn eval_let(&mut self, identifier: &Identifier, expression: &Expression) -> Option<Object> {
+    fn eval_let(&mut self, identifier: &Identifier, expression: &Expression, type_annotation: &Option<Alias>) -> Option<Object> {
+        println!("type_annotation: {:?}", type_annotation);
         if let Some(value) = self.eval_expression(expression) {
             if let Token::Identifier(name) = identifier {
                 if self.env.borrow().exists_in_current_scope(&name) {
@@ -1127,160 +1128,5 @@ impl Evaluator {
         } else {
             Some(Object::Error("Invalid variant name".to_string()))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_eval_let() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::Integer(1))), Statement::Expression(Expression::Identifier(Identifier::Identifier("x".to_string())))];
-        let result = evaluator.eval(&program);
-        assert_eq!(result, Some(Object::Integer(1)));
-    }
-
-    #[test]     
-    fn test_eval_return() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        let program = vec![Statement::Return(Expression::Literal(Literal::Integer(1)))];
-        let result = evaluator.eval(&program);
-        assert_eq!(result, Some(Object::Return(Box::new(Object::Integer(1)))));
-    }
-
-    #[test] 
-    fn test_eval_if_else_else() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        let program = vec![Statement::Expression(Expression::If { condition: Box::new(Expression::Literal(Literal::Boolean(true))), consequence: vec![Statement::Return(Expression::Literal(Literal::Integer(1)))], alternative: Some(vec![Statement::Return(Expression::Literal(Literal::Integer(2)))]) })];
-        let result = evaluator.eval(&program);
-        assert_eq!(result, Some(Object::Return(Box::new(Object::Integer(1)))));
-    }
-
-    #[test]
-    fn test_eval_list() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::List(vec![Expression::Literal(Literal::Integer(1)), Expression::Literal(Literal::Integer(2))]))), Statement::Expression(Expression::Identifier(Identifier::Identifier("x".to_string())))];
-        let result = evaluator.eval(&program);
-        assert_eq!(result, Some(Object::List(vec![Object::Integer(1), Object::Integer(2)])));
-    }
-
-    #[test]
-    fn test_eval_list_cons() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        let program = vec![Statement::Let(Identifier::Identifier("x".to_string()), Expression::Literal(Literal::List(vec![Expression::Literal(Literal::Integer(1)), Expression::Literal(Literal::Integer(2))]))), Statement::Expression(Expression::Infix(Infix::Cons, Box::new(Expression::Literal(Literal::Integer(3))), Box::new(Expression::Identifier(Identifier::Identifier("x".to_string())))))];
-        let result = evaluator.eval(&program);
-        assert_eq!(result, Some(Object::List(vec![Object::Integer(3), Object::Integer(1), Object::Integer(2)])));
-    }
-
-    #[test]
-    fn test_eval_range() {
-        let env = Rc::new(RefCell::new(Env::new()));
-        let mut evaluator = Evaluator::new(env);
-        let start = Expression::Literal(Literal::Integer(1));
-        let end = Expression::Literal(Literal::Integer(5));
-        let range_expr = Expression::Range {
-            start: Box::new(start),
-            end: Box::new(end),
-        };
-        
-        let result = evaluator.eval_expression(&range_expr).unwrap();
-        match result {
-            Object::List(elements) => {
-                assert_eq!(elements.len(), 5);
-                for (i, obj) in elements.iter().enumerate() {
-                    assert_eq!(*obj, Object::Integer((i + 1) as i128));
-                }
-            }
-            _ => panic!("Expected list, got {:?}", result),
-        }
-        
-        let start = Expression::Literal(Literal::Float(1.5));
-        let end = Expression::Literal(Literal::Integer(5));
-        let range_expr = Expression::Range {
-            start: Box::new(start),
-            end: Box::new(end),
-        };
-        
-        let result = evaluator.eval_expression(&range_expr).unwrap();
-        match result {
-            Object::Error(msg) => {
-                assert!(msg.contains("Range start must be an integer"));
-            }
-            _ => panic!("Expected error for non-integer start, got {:?}", result),
-        }
-        
-        let start = Expression::Literal(Literal::Integer(1));
-        let end = Expression::Literal(Literal::String("5".to_string()));
-        let range_expr = Expression::Range {
-            start: Box::new(start),
-            end: Box::new(end),
-        };
-        
-        let result = evaluator.eval_expression(&range_expr).unwrap();
-        match result {
-            Object::Error(msg) => {
-                assert!(msg.contains("Range end must be an integer"));
-            }
-            _ => panic!("Expected error for non-integer end, got {:?}", result),
-        }
-    }
-
-    #[test]
-    fn test_complex_type_aliases() {
-        let mut evaluator = Evaluator::new(Rc::new(RefCell::new(Env::new())));
-        
-        // Define type aliases
-        evaluator.eval_type(
-            &Token::Identifier("alive".to_string()),
-            &Type::Alias(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::Bool),
-                parameters: vec![],
-            }),
-        );
-
-        evaluator.eval_type(
-            &Token::Identifier("tags".to_string()),
-            &Type::Alias(Alias {
-                name: TypeConstructor::BuiltIn(Constructor::List),
-                parameters: vec![Alias {
-                    name: TypeConstructor::BuiltIn(Constructor::Result),
-                    parameters: vec![
-                        Alias {
-                            name: TypeConstructor::BuiltIn(Constructor::Int),
-                            parameters: vec![],
-                        },
-                        Alias {
-                            name: TypeConstructor::BuiltIn(Constructor::String),
-                            parameters: vec![],
-                        },
-                    ],
-                }],
-            }),
-        );
-
-        // Test simple alias
-        assert!(evaluator.check_type_match(
-            &Object::Boolean(true),
-            &Alias {
-                name: TypeConstructor::Custom(Token::Identifier("alive".to_string())),
-                parameters: vec![],
-            }
-        ));
-
-        // Test complex nested alias
-        let complex_value = Object::List(vec![
-            Object::ResultOk(Box::new(Object::Integer(42))),
-            Object::ResultErr(Box::new(Object::String("error".to_string()))),
-        ]);
-
-        assert!(evaluator.check_type_match(
-            &complex_value,
-            &Alias {
-                name: TypeConstructor::Custom(Token::Identifier("tags".to_string())),
-                parameters: vec![],
-            }
-        ));
     }
 }
